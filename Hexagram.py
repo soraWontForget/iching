@@ -10,7 +10,8 @@
 # taught by each hexagram, and line 6 often refers to how the energy of a particular Hexagram becomes exhausted or ends.
 # The text in the hexagram.xml consists of interpretations of the I Ching by Richard Wilhelm.
 #
-# The I Ching uses a type of divination called cleromancy. Traditionally, coins are used in the sortition.
+# The I Ching uses a type of divination called cleromancy. Traditionally, yarrow sticks or coins are used in the
+# sortition.
 #
 # TODO: Implement other methods/sources for truly random generated numbers.
 # TODO: Print out hexagram name
@@ -18,8 +19,11 @@
 # TODO: Finish hexagrams.xml
 # TODO: Produce more visually appealing hexagrams.
 # ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*
-
 import secrets
+import time
+import RFExplorer
+from RFExplorer import RFE_Common
+
 
 
 class Hexagram:
@@ -27,19 +31,46 @@ class Hexagram:
     BLANK = "[                       ]"
     DASHED = "[-----------------------]"
 
-    def __init__(self):
+    def __init__(self, method="1"):
         self._hexagram = []
+        self._rf_exp = None
+        self._rf_exp_inst = None
+        self._method = method
 
-        self._lower_trigram = Trigram()
-        self._upper_trigram = Trigram()
+        if int(self._method) == 2:
+            print("init rf explorer...")
+            self._rf_exp = RFExplorer.RFECommunicator()
+
+        self.set_trigrams()
+
+    def set_trigrams(self):
+        self._lower_trigram = Trigram(self._method, self._rf_exp)
+        self._upper_trigram = Trigram(self._method, self._rf_exp)
 
         self._hexagram.append(self._lower_trigram)
         self._hexagram.append(self._upper_trigram)
 
     def flip_yaos(self):
-        self._clear()
-        for i in self._hexagram:
-            i.flip_coins()
+        if self._method == 1:
+            for i in self._hexagram:
+                i.flip_coins()
+        elif int(self._method) == 2:
+            self._rf_exp = RFExplorer.RFECommunicator()
+            self._rf_exp.GetConnectedPorts()
+            if (self._rf_exp.ConnectPort("/dev/cu.SLAB_USBtoUART", 500000)):
+                self._rf_exp.SendCommand("r")
+                # Wait for unit to notify reset completed
+                while (self._rf_exp.IsResetEvent):
+                    pass
+                time.sleep(8)
+
+                self._rf_exp.SendCommand_RequestConfigData()
+                while (self._rf_exp.ActiveModel == RFExplorer.RFE_Common.eModel.MODEL_NONE):
+                    self._rf_exp.ProcessReceivedString(True)  # Process the received configuration
+                for i in self._hexagram:
+                    i.flip_coins(self._rf_exp)
+            self._rf_exp.Close()  # Finish the thread and close port
+            self._rf_exp = None
 
     def print(self):
         print(self.DASHED)
@@ -53,7 +84,6 @@ class Hexagram:
         self._print_transformed()
         print(self.BLANK + " | " + "HEX_NAME" + " | ")
         print(self.DASHED)
-
 
     def _print_primary(self):
         hex_name = self.get_hex_name()
@@ -70,37 +100,33 @@ class Hexagram:
             i.print_transformed()
         self._hexagram.reverse()
 
-    def _clear(self):
-        self._hexagram = None
-        self._lower_trigram = None
-        self._upper_trigram = None
-
-        self.__init__()
-
-
     def get_hex_name(self):
         pass
 
 
 class Trigram:
 
-    def __init__(self):
+    def __init__(self, method, rf_exp=None):
         self._trigram_yaos = []
         self._trigram_value = None
         self._trigram_name = None
 
-        self._e0 = Yao()
-        self._e1 = Yao()
-        self._e2 = Yao()
+        self._y0 = Yao(method, rf_exp)
+        self._y1 = Yao(method, rf_exp)
+        self._y2 = Yao(method, rf_exp)
 
-        self._trigram_yaos.append(self._e0)
-        self._trigram_yaos.append(self._e1)
-        self._trigram_yaos.append(self._e2)
+        self._trigram_yaos.append(self._y0)
+        self._trigram_yaos.append(self._y1)
+        self._trigram_yaos.append(self._y2)
 
-    def flip_coins(self):
-        for i in self._trigram_yaos:
-            i.flip_coins()
-        self._calc_trigram()
+    def flip_coins(self, rf_exp=None):
+        if rf_exp:
+            for i in self._trigram_yaos:
+                i.flip_coins(rf_exp)
+        else:
+            for i in self._trigram_yaos:
+                i.flip_coins()
+            self._calc_trigram()
 
     def print_primary(self):
         _ = []
@@ -133,16 +159,15 @@ class Yao:
     TRANSFORMED_YIN = "[&&&&&&&&&&&&&&&&&&&&&&&]"
 
 
-
-    def __init__(self):
-        self._coin_1 = Coin()
-        self._coin_2 = Coin()
-        self._coin_3 = Coin()
+    def __init__(self, method, rf_exp=None):
+        self._c1 = Coin(method, rf_exp)
+        self._c2 = Coin(method, rf_exp)
+        self._c3 = Coin(method, rf_exp)
 
         self._yao = []
-        self._yao.append(self._coin_1)
-        self._yao.append(self._coin_2)
-        self._yao.append(self._coin_3)
+        self._yao.append(self._c1)
+        self._yao.append(self._c2)
+        self._yao.append(self._c3)
 
         self._sum = None
 
@@ -156,15 +181,21 @@ class Yao:
                                   1: ["[0X0]", "Unchanging Yin  ", self.AT_YIN_UNCHANGE, 1],
                                   2: ["[000]", "Unchanging Yang ", self.AT_YANG_UNCHANGE, 0],
                                   3: ["{0X0}", "Changing Yin    ", self.SH_YIN_CHANGING, 1]}
+
         self._TRANSFORMED = {0: [self.TRANSFORMED_YANG, "Transformed Yang"],
                                   1: [self.AT_YIN_UNCHANGE, "Unchanging Yin"],
                                   2: [self.AT_YANG_UNCHANGE, "Unchanged Yang"],
                                   3: [self.TRANSFORMED_YIN, "Transformed Yin"]}
 
-    def flip_coins(self):
-        for i in self._yao:
-            i.flip()
-        self._calc_name()
+    def flip_coins(self, rf_exp=None):
+        if rf_exp:
+            for i in self._yao:
+                i.flip(rf_exp)
+            self._calc_name()
+        else:
+            for i in self._yao:
+                i.flip()
+            self._calc_name()
 
     def _calc_name(self):
         _sum = self._sum_coins()
@@ -193,22 +224,58 @@ class Yao:
 
 class Coin:
 
-    def __init__(self):
+    def __init__(self, method, rf_exp=None):
         self._state = None
-        self._rand_below = 2
+        self._method = method
+        self._rf_exp = rf_exp
+
         self._calc_state = lambda x: [0, "[ 0 ]"] if x == 0 else [1, "[ 1 ]"]
         self.count = 0
-        self.dot = "."
+        self._dot = "."
 
-    def flip(self):
-        input("Press and hold 'return/enter' while thinking of your question to proceed.")
-        _ = self._gen_state()
-        print(self.dot*self.count)
+    def flip(self, rf_exp=None):
+        _ = self._gen_state(rf_exp)
+        print(self._dot*self.count)
         self.count += 1
         self._set_state(self._calc_state(_))
 
-    def _gen_state(self):
-        return secrets.randbelow(self._rand_below)
+    def _gen_state(self, rf_exp):
+        freq = []
+        _ = self._method
+        if int(self._method) == 2:
+            input("Press and hold 'return/enter' while thinking of your question to proceed.")
+            counter = 0
+            while counter < 2:
+                #Process all received data from device
+                rf_exp.ProcessReceivedString(True)
+                _ = self._sweep_rf(rf_exp)
+                print(_)
+                freq.append(_)
+                counter += 1
+                time.sleep(0.3)
+            state = self._diff_freq(freq[0], freq[1])
+        else:
+            input("Press and hold 'return/enter' while thinking of your question to proceed.")
+            state = secrets.randbelow(2)
+
+        return state
+
+    def _diff_freq(self, freq1, freq2):
+        freq3 = abs(int(freq1) - int(freq2))
+
+        state = 0 if int(freq3) % 2 == 0 else 1
+
+        print("FREQ3: {} | STATE: {}".format(freq3, state))
+
+        return state
+
+    def _sweep_rf(self, objAnalyzer):
+        nIndex = objAnalyzer.SweepData.Count - 1
+        objSweepTemp = objAnalyzer.SweepData.GetData(nIndex)
+        nStep = objSweepTemp.GetPeakDataPoint()
+        freq = objSweepTemp.GetFrequencyMHZ(nStep)
+
+        return freq
 
     def _set_state(self, state):
         self._state = state
@@ -217,14 +284,39 @@ class Coin:
         return self._state
 
 
+class MethodManager:
+
+    def __init__(self):
+        self.method = None
+        self._select_method()
+
+    def _select_method(self):
+        print("1. /dev/random")
+        print("2. RF Explorer")
+        inp = input("Select Method: ")
+        _ = str(inp).isnumeric()
+        if _:
+            inp = int(inp)
+            if (inp < 3 and inp > 0):
+                self.method = inp
+                print("Method: {} selected".format(self.method))
+        else:
+            raise KeyboardInterrupt
+
+
 class Doorway:
 
     def __init__(self):
-        self.hex = Hexagram()
-        print("Think of an open ended question.")
-        print("If the answer can be answered with a 'yes,' or a 'no' you are throwing wrong.")
-        self.question = input("If you like, type your question out here, otherwise hold the question in your mind then press and hold enter: ")
-        print("..........................")
+        try:
+            self.methodManager = MethodManager()
+            self.hex = Hexagram(self.methodManager.method)
+            print("Think of an open ended question.")
+            print("If the answer can be answered with a 'yes,' or a 'no' you are throwing wrong.")
+            self.question = input("If you like, type your question out here, otherwise hold the question in your mind then press and hold enter: ")
+            print("..........................")
+        except:
+            print("Please input a valid option.")
+            self.__init__()
 
     def cast(self):
         self.hex.flip_yaos()
