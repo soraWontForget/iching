@@ -23,7 +23,7 @@ import secrets
 import time
 import RFExplorer
 from RFExplorer import RFE_Common
-
+import xml.etree.ElementTree as et
 
 
 class Hexagram:
@@ -282,6 +282,54 @@ class Coin:
 
     def get_state(self):
         return self._state
+
+
+class Parser:
+
+    def __init__(self):
+        self._parsed = et.parse(source="interpretation/hexagrams.xml")
+        self.root = self._parsed.getroot()
+
+    def _parse(self):
+        pass
+
+
+class HexModel:
+
+    def __init__(self):
+        self._name = None
+        self._number = None
+        self._description = None
+        self._judgement = None
+        self._image = None
+        self._lines = None
+
+    class Abstraction:
+
+        def __init__(self, text, interpretation):
+            self.text = text
+            self.interpretation = interpretation
+
+    class Judgement(Abstraction):
+
+        def __init__(self, text, interpretation):
+            super().__init__(text, interpretation)
+
+    class Image(Abstraction):
+
+        def __init__(self, text, interpretation):
+            super().__init__(text, interpretation)
+
+    class Lines:
+
+        def __init__(self, lines: list):
+            self.lines = lines
+
+
+    class Line(Abstraction):
+
+        def __init__(self, text, interpretation):
+            super().__init__(text, interpretation)
 
 
 class MethodManager:
