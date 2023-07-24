@@ -30,13 +30,21 @@ class Hexagram:
 
     BLANK = "[                       ]"
     DASHED = "[-----------------------]"
+    HEX_CHART = {'[1, 1]': 1, '[1, 4]': 25, '[1, 6]': 6, '[1, 5]': 33, '[1, 8]': 12, '[1, 7]': 44, '[1, 3]': 13, '[1, 2]': 10,
+                 '[4, 1]': 34, '[4, 4]': 51, '[4, 6]': 40, '[4, 5]': 62, '[4, 8]': 16, '[4, 7]': 32, '[4, 3]': 55, '[4, 2]': 54,
+                 '[6, 1]': 5, '[6, 4]': 3, '[6, 6]': 29, '[6, 5]': 39, '[6, 8]': 8, '[6, 7]': 48, '[6, 3]': 63, '[6, 2]': 60,
+                 '[5, 1]': 26, '[5, 4]': 27, '[5, 6]': 4, '[5, 5]': 52, '[5, 8]': 23, '[5, 7]': 18, '[5, 3]': 22, '[5, 2]': 41,
+                 '[8, 1]': 11, '[8, 4]': 24, '[8, 6]': 7, '[8, 5]': 15, '[8, 8]': 2, '[8, 7]': 46, '[8, 3]': 36, '[8, 2]': 19,
+                 '[7, 1]': 9, '[7, 4]': 42, '[7, 6]': 59, '[7, 5]': 53, '[7, 8]': 20, '[7, 7]': 57, '[7, 3]': 37, '[7, 2]': 61,
+                 '[3, 1]': 14, '[3, 4]': 21, '[3, 6]': 64, '[3, 5]': 56, '[3, 8]': 35, '[3, 7]': 50, '[3, 3]': 30, '[3, 2]': 38,
+                 '[2, 1]': 43, '[2, 4]': 17, '[2, 6]': 47, '[2, 5]': 31, '[2, 8]': 45, '[2, 7]': 28, '[2, 3]': 49, '[2, 2]': 58}
 
     def __init__(self, method="1"):
         self._hexagram = []
         self._rf_exp = None
         self._rf_exp_inst = None
         self._method = method
-
+        self._hex_model = None
         if int(self._method) == 2:
             print("init rf explorer...")
             self._rf_exp = RFExplorer.RFECommunicator()
@@ -49,6 +57,7 @@ class Hexagram:
 
         self._hexagram.append(self._lower_trigram)
         self._hexagram.append(self._upper_trigram)
+
 
     def flip_yaos(self):
         if self._method == 1:
@@ -73,16 +82,20 @@ class Hexagram:
             self._rf_exp = None
 
     def print(self):
+        parser = Parser()
+        hex = parser.get_hexagram(self.HEX_CHART[str([self._hexagram[0].trigram_value, self._hexagram[1].trigram_value])])
+        self._hex_model = HexModel(**hex)
         print(self.DASHED)
-        print(self.BLANK + " | " + "HEX_NAME" + " | ")
+        # print(self.BLANK + " | " + "HEX_NAME" + " | ")
+        print(self.BLANK + " | " + self._hex_model.name + " | ")
         self._print_primary()
-        print(self.BLANK + " | " + "HEX_NAME" + " | ")
+        print(self.BLANK + " | " + self._hex_model.name + " | ")
         print(self.DASHED)
         print("\n")
         print(self.DASHED)
-        print(self.BLANK + " | " + "HEX_NAME" + " | ")
+        print(self.BLANK + " | " + self._hex_model.name + " | ")
         self._print_transformed()
-        print(self.BLANK + " | " + "HEX_NAME" + " | ")
+        print(self.BLANK + " | " + self._hex_model.name + " | ")
         print(self.DASHED)
 
     def _print_primary(self):
@@ -103,13 +116,53 @@ class Hexagram:
     def get_hex_name(self):
         pass
 
+class HexModel:
+
+    def __init__(self, name, number, desc, judge, img, lines):
+        self.name = name
+        self.number = number
+        self.description = desc
+        self.judgement = judge
+        self.image = img
+        self.lines = lines
+
+    class Abstraction:
+
+        def __init__(self, text, interpretation):
+            self.text = text
+            self.interpretation = interpretation
+
+    class Judgement(Abstraction):
+
+        def __init__(self, text, interpretation):
+            super().__init__(text, interpretation)
+
+    class Image(Abstraction):
+
+        def __init__(self, text, interpretation):
+            super().__init__(text, interpretation)
+
+    class Line(Abstraction):
+
+        def __init__(self, text, interpretation, state):
+            super().__init__(text, interpretation)
+            self._changed_state = state
+
+    class Lines:
+
+        def __init__(self, lines: list):
+            self.lines = lines
+
 
 class Trigram:
 
+    TRIGRAM_CHART = {'[1, 1, 1]': 1, '[1, 1, 0]': 2, '[1, 0, 1]': 3, '[1, 0, 0]': 4, '[0, 1, 1]': 5, '[0, 1, 0]': 6,
+                     '[0, 0, 1]': 7, '[0, 0, 0]': 8}
+
     def __init__(self, method, rf_exp=None):
         self._trigram_yaos = []
-        self._trigram_value = None
-        self._trigram_name = None
+        self.trigram_value = None
+        self.trigram_name = None
 
         self._y0 = Yao(method, rf_exp)
         self._y1 = Yao(method, rf_exp)
@@ -126,7 +179,7 @@ class Trigram:
         else:
             for i in self._trigram_yaos:
                 i.flip_coins()
-            self._calc_trigram()
+        self._calc_trigram()
 
     def print_primary(self):
         _ = []
@@ -145,8 +198,13 @@ class Trigram:
         self._trigram_yaos.reverse()
 
     def _calc_trigram(self):
+        bits = []
+        self._trigram_yaos.reverse()
         for i in self._trigram_yaos:
-            pass
+            bits.append(i.yao_name_young_old[3])
+        self._trigram_yaos.reverse()
+        self.trigram_value = self.TRIGRAM_CHART[str(bits)]
+
 
 
 class Yao:
@@ -172,7 +230,7 @@ class Yao:
         self._sum = None
 
         self._yao_name_yinyang = None
-        self._yao_name_young_old = None
+        self.yao_name_young_old = None
         self._yao_name_transformed = None
 
         self._YINYANG = lambda x: ["[0X0]", "Yin"] if x == 1 or x == 3 else ["[000]", "Yang"]
@@ -201,7 +259,7 @@ class Yao:
         _sum = self._sum_coins()
 
         self._yao_name_yinyang = self._YINYANG(_sum)
-        self._yao_name_young_old = self._YINYANG_YOUNGOLD[_sum]
+        self.yao_name_young_old = self._YINYANG_YOUNGOLD[_sum]
         self._yao_name_transformed = self._TRANSFORMED[_sum]
         self._sum = _sum
 
@@ -215,11 +273,11 @@ class Yao:
         return _sum
 
     def print_primary(self):
-        _ = self._yao_name_young_old
-        return [self._sum, self._yao_name_yinyang, self._yao_name_young_old]
+        _ = self.yao_name_young_old
+        return [self._sum, self._yao_name_yinyang, self.yao_name_young_old]
 
     def print_transformed(self) :
-        return [self._sum, self._yao_name_transformed, self._yao_name_young_old]
+        return [self._sum, self._yao_name_transformed, self.yao_name_young_old]
 
 
 class Coin:
@@ -288,48 +346,51 @@ class Parser:
 
     def __init__(self):
         self._parsed = et.parse(source="interpretation/hexagrams.xml")
-        self.root = self._parsed.getroot()
+        self._root = self._parsed.getroot()
+        self._hexes = self._root.findall("hexagram")
 
-    def _parse(self):
-        pass
+    def get_hexagram(self, hex_num):
+        for i in self._hexes:
+            _ = i.get('number')
+            if int(_) == int(hex_num):
+                name = i.get('name')
+                desc = i.find("desc").text
+                judge = i.find("judgement")
+                image = i.find("image")
+                lines = i.find("lines")
 
+                judge_t = judge.find("text").text
+                judge_i = judge.find("interpretation").text
 
-class HexModel:
+                image_t = image.find("text").text
+                image_i = image.find("interpretation").text
 
-    def __init__(self):
-        self._name = None
-        self._number = None
-        self._description = None
-        self._judgement = None
-        self._image = None
-        self._lines = None
+                l_one = lines.find("one")
+                l_two = lines.find("two")
+                l_three = lines.find("three")
+                l_four = lines.find("four")
+                l_five = lines.find("five")
+                l_six = lines.find("six")
 
-    class Abstraction:
+                l_one_t = l_one.find("text").text
+                l_one_d = l_one.find("description").text
+                l_two_t = l_two.find("text").text
+                l_two_d = l_two.find("description").text
+                l_three_t = l_three.find("text").text
+                l_three_d = l_three.find("description").text
+                l_four_t = l_four.find("text").text
+                l_four_d = l_four.find("description").text
+                l_five_t = l_five.find("text").text
+                l_five_d = l_five.find("description").text
+                l_six_t = l_six.find("text").text
+                l_six_d = l_six.find("description").text
 
-        def __init__(self, text, interpretation):
-            self.text = text
-            self.interpretation = interpretation
+                kwargs = {"name": name, "number": hex_num, "desc": desc, "judge": [judge_t, judge_i],
+                          "img": [image_t, image_i], "lines": {1: [l_one_t, l_one_d], 2: [l_two_t, l_two_d],
+                                                               3: [l_three_t, l_three_d], 4: [l_four_t, l_four_d],
+                                                               5: [l_five_t, l_five_d], 6: [l_six_t, l_six_d]}}
 
-    class Judgement(Abstraction):
-
-        def __init__(self, text, interpretation):
-            super().__init__(text, interpretation)
-
-    class Image(Abstraction):
-
-        def __init__(self, text, interpretation):
-            super().__init__(text, interpretation)
-
-    class Lines:
-
-        def __init__(self, lines: list):
-            self.lines = lines
-
-
-    class Line(Abstraction):
-
-        def __init__(self, text, interpretation):
-            super().__init__(text, interpretation)
+                return kwargs
 
 
 class MethodManager:
