@@ -30,14 +30,14 @@ class Hexagram:
 
     BLANK = "[                       ]"
     DASHED = "[-----------------------]"
-    HEX_CHART = {'[1, 1]': 1, '[1, 4]': 25, '[1, 6]': 6, '[1, 5]': 33, '[1, 8]': 12, '[1, 7]': 44, '[1, 3]': 13, '[1, 2]': 10,
-                 '[4, 1]': 34, '[4, 4]': 51, '[4, 6]': 40, '[4, 5]': 62, '[4, 8]': 16, '[4, 7]': 32, '[4, 3]': 55, '[4, 2]': 54,
-                 '[6, 1]': 5, '[6, 4]': 3, '[6, 6]': 29, '[6, 5]': 39, '[6, 8]': 8, '[6, 7]': 48, '[6, 3]': 63, '[6, 2]': 60,
-                 '[5, 1]': 26, '[5, 4]': 27, '[5, 6]': 4, '[5, 5]': 52, '[5, 8]': 23, '[5, 7]': 18, '[5, 3]': 22, '[5, 2]': 41,
-                 '[8, 1]': 11, '[8, 4]': 24, '[8, 6]': 7, '[8, 5]': 15, '[8, 8]': 2, '[8, 7]': 46, '[8, 3]': 36, '[8, 2]': 19,
-                 '[7, 1]': 9, '[7, 4]': 42, '[7, 6]': 59, '[7, 5]': 53, '[7, 8]': 20, '[7, 7]': 57, '[7, 3]': 37, '[7, 2]': 61,
-                 '[3, 1]': 14, '[3, 4]': 21, '[3, 6]': 64, '[3, 5]': 56, '[3, 8]': 35, '[3, 7]': 50, '[3, 3]': 30, '[3, 2]': 38,
-                 '[2, 1]': 43, '[2, 4]': 17, '[2, 6]': 47, '[2, 5]': 31, '[2, 8]': 45, '[2, 7]': 28, '[2, 3]': 49, '[2, 2]': 58}
+    HEX_CHART = {'[1, 1]': 1, '[1, 4]': 33, '[1, 6]': 44, '[1, 5]': 12, '[1, 8]': 10, '[1, 7]': 13, '[1, 3]': 6, '[1, 2]': 25,
+                 '[4, 1]': 26, '[4, 4]': 52, '[4, 6]': 18, '[4, 5]': 23, '[4, 8]': 41, '[4, 7]': 22, '[4, 3]': 4, '[4, 2]': 27,
+                 '[6, 1]': 9, '[6, 4]': 53, '[6, 6]': 57, '[6, 5]': 20, '[6, 8]': 61, '[6, 7]': 37, '[6, 3]': 59, '[6, 2]': 42,
+                 '[5, 1]': 11, '[5, 4]': 15, '[5, 6]': 46, '[5, 5]': 2, '[5, 8]': 19, '[5, 7]': 36, '[5, 3]': 7, '[5, 2]': 24,
+                 '[8, 1]': 43, '[8, 4]': 31, '[8, 6]': 28, '[8, 5]': 45, '[8, 8]': 58, '[8, 7]': 49, '[8, 3]': 47, '[8, 2]': 17,
+                 '[7, 1]': 14, '[7, 4]': 56, '[7, 6]': 50, '[7, 5]': 35, '[7, 8]': 20, '[7, 7]': 30, '[7, 3]': 64, '[7, 2]': 21,
+                 '[3, 1]': 5, '[3, 4]': 39, '[3, 6]': 48, '[3, 5]': 8, '[3, 8]': 60, '[3, 7]': 63, '[3, 3]': 29, '[3, 2]': 3,
+                 '[2, 1]': 34, '[2, 4]': 62, '[2, 6]': 32, '[2, 5]': 16, '[2, 8]': 54, '[2, 7]': 55, '[2, 3]': 40, '[2, 2]': 51}
 
     def __init__(self, method="1"):
         self._hexagram = []
@@ -86,7 +86,6 @@ class Hexagram:
         hex = parser.get_hexagram(self.HEX_CHART[str([self._hexagram[0].trigram_value, self._hexagram[1].trigram_value])])
         self._hex_model = HexModel(**hex)
         print(self.DASHED)
-        # print(self.BLANK + " | " + "HEX_NAME" + " | ")
         print(self.BLANK + " | " + self._hex_model.name + " | ")
         self._print_primary()
         print(self.BLANK + " | " + self._hex_model.name + " | ")
@@ -100,18 +99,15 @@ class Hexagram:
 
     def _print_primary(self):
         hex_name = self.get_hex_name()
-        self._hexagram.reverse()
+
         for i in self._hexagram:
             i.print_primary()
-        self._hexagram.reverse()
 
     def _print_transformed(self):
         hex_name = self.get_hex_name()
-        self._hexagram.reverse()
 
         for i in self._hexagram:
             i.print_transformed()
-        self._hexagram.reverse()
 
     def get_hex_name(self):
         pass
@@ -156,8 +152,8 @@ class HexModel:
 
 class Trigram:
 
-    TRIGRAM_CHART = {'[1, 1, 1]': 1, '[1, 1, 0]': 2, '[1, 0, 1]': 3, '[1, 0, 0]': 4, '[0, 1, 1]': 5, '[0, 1, 0]': 6,
-                     '[0, 0, 1]': 7, '[0, 0, 0]': 8}
+    TRIGRAM_CHART = {'[1, 1, 1]': 1, '[0, 0, 1]': 2, '[0, 1, 0]': 3, '[1, 0, 0]': 4, '[0, 0, 0]': 5, '[1, 1, 0]': 6,
+                     '[1, 0, 1]': 7, '[0, 1, 1]': 8}
 
     def __init__(self, method, rf_exp=None):
         self._trigram_yaos = []
@@ -235,10 +231,10 @@ class Yao:
 
         self._YINYANG = lambda x: ["[0X0]", "Yin"] if x == 1 or x == 3 else ["[000]", "Yang"]
 
-        self._YINYANG_YOUNGOLD = {0: ["{000}", "Changing Yang   ", self.SH_YANG_CHANGING, 0],
-                                  1: ["[0X0]", "Unchanging Yin  ", self.AT_YIN_UNCHANGE, 1],
-                                  2: ["[000]", "Unchanging Yang ", self.AT_YANG_UNCHANGE, 0],
-                                  3: ["{0X0}", "Changing Yin    ", self.SH_YIN_CHANGING, 1]}
+        self._YINYANG_YOUNGOLD = {0: ["{000}", "Changing Yang   ", self.SH_YANG_CHANGING, 1],
+                                  1: ["[0X0]", "Unchanging Yin  ", self.AT_YIN_UNCHANGE, 0],
+                                  2: ["[000]", "Unchanging Yang ", self.AT_YANG_UNCHANGE, 1],
+                                  3: ["{0X0}", "Changing Yin    ", self.SH_YIN_CHANGING, 0]}
 
         self._TRANSFORMED = {0: [self.TRANSFORMED_YANG, "Transformed Yang"],
                                   1: [self.AT_YIN_UNCHANGE, "Unchanging Yin"],
@@ -354,7 +350,7 @@ class Parser:
             _ = i.get('number')
             if int(_) == int(hex_num):
                 name = i.get('name')
-                desc = i.find("desc").text
+                desc = i.find("description").text
                 judge = i.find("judgement")
                 image = i.find("image")
                 lines = i.find("lines")
@@ -373,17 +369,17 @@ class Parser:
                 l_six = lines.find("six")
 
                 l_one_t = l_one.find("text").text
-                l_one_d = l_one.find("description").text
+                l_one_d = l_one.find("meaning").text
                 l_two_t = l_two.find("text").text
-                l_two_d = l_two.find("description").text
+                l_two_d = l_two.find("meaning").text
                 l_three_t = l_three.find("text").text
-                l_three_d = l_three.find("description").text
+                l_three_d = l_three.find("meaning").text
                 l_four_t = l_four.find("text").text
-                l_four_d = l_four.find("description").text
+                l_four_d = l_four.find("meaning").text
                 l_five_t = l_five.find("text").text
-                l_five_d = l_five.find("description").text
+                l_five_d = l_five.find("meaning").text
                 l_six_t = l_six.find("text").text
-                l_six_d = l_six.find("description").text
+                l_six_d = l_six.find("meaning").text
 
                 kwargs = {"name": name, "number": hex_num, "desc": desc, "judge": [judge_t, judge_i],
                           "img": [image_t, image_i], "lines": {1: [l_one_t, l_one_d], 2: [l_two_t, l_two_d],
