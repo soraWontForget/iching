@@ -13,11 +13,18 @@
 # The I Ching uses a type of divination called cleromancy. Traditionally, yarrow sticks or coins are used in the
 # sortition.
 #
+# The readings rely on the Jungian concept of synchronicity. Meaning from the thrown hexagram is best derived from the
+# person who threw it. This person's interpretation of the hexagram would be the most true interpretation. The outputted
+# text most applicable to the question and all possible answers to that question from that person's perspective should
+# be taken as the reading. This method of interpreting the thrown hexagram should offset the bias (cultural or
+# otherwise) produced during the process of translating the original text, as well as offset any meaning lost during
+# translation.
+#
+#
 # TODO: Implement other methods/sources for truly random generated numbers.
-# TODO: Print out hexagram name
-# TODO: Print out relevant text from hexagrams.xml
-# TODO: Finish hexagrams.xml
 # TODO: Produce more visually appealing hexagrams.
+# TODO: Add interpretation for transformed hexagram.
+# TODO: Only print out the transformed hexagram when necessary.
 # ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*
 import secrets
 import time
@@ -48,7 +55,6 @@ class Hexagram:
         if int(self._method) == 2:
             print("init rf explorer...")
             self._rf_exp = RFExplorer.RFECommunicator()
-
         self.set_trigrams()
 
     def set_trigrams(self):
@@ -91,32 +97,68 @@ class Hexagram:
         print(self.BLANK + " | " + self._hex_model.name + " | ")
         print(self.DASHED)
         print("\n")
+        self._print_meaning()
         print(self.DASHED)
         print(self.BLANK + " | " + self._hex_model.name + " | ")
         self._print_transformed()
         print(self.BLANK + " | " + self._hex_model.name + " | ")
         print(self.DASHED)
+        # self._print_meaning(self._hex_model.number)
 
     def _print_primary(self):
-        hex_name = self.get_hex_name()
-
         for i in self._hexagram:
             i.print_primary()
 
     def _print_transformed(self):
-        hex_name = self.get_hex_name()
-
         for i in self._hexagram:
             i.print_transformed()
 
-    def get_hex_name(self):
-        pass
+
+    def _print_meaning(self, hex_number=None):
+        if hex_number:
+            self._print_transformed_meaning()
+        else:
+            self._print_primary_meaning()
+
+    def _print_primary_meaning(self):
+        print("Hex Number: " + str(self._hex_model.number))
+        print("Description: " + self._hex_model.description)
+        print("Judgement: " + self._hex_model.judgement[0])
+        print("J Interpretation: " + self._hex_model.judgement[1])
+        print("Image: " + self._hex_model.image[0])
+        print("I Interpretation: " + self._hex_model.image[1])
+        self._print_changing_lines()
+
+
+    def _print_transformed_meaning(self):
+        print("Hex Number: " + str(self._hex_model.number))
+        print("Description: " + self._hex_model.description)
+        print("Judgement: " + self._hex_model.judgement[0])
+        print("J Interpretation: " + self._hex_model.judgement[1])
+        print("Image: " + self._hex_model.image[0])
+        print("I Interpretation: " + self._hex_model.image[1])
+
+
+    def _print_changing_lines(self):
+        counter = 0
+        self._hexagram.reverse()
+        for tri in self._hexagram:
+            tri._trigram_yaos.reverse()
+            for yao in tri._trigram_yaos:
+                if yao.yao_name_young_old[4] == 1:
+                    print("Line {}".format(counter + 1) + self._hex_model.lines[counter + 1][0])
+                    print("Line {} Interpretation: ".format(counter + 1) + self._hex_model.lines[counter + 1][1])
+                counter += 1
+            tri._trigram_yaos.reverse()
+        self._hexagram.reverse()
+
 
 class HexModel:
 
     def __init__(self, name, number, desc, judge, img, lines):
         self.name = name
         self.number = number
+        self._transformed_number = number
         self.description = desc
         self.judgement = judge
         self.image = img
@@ -202,7 +244,6 @@ class Trigram:
         self.trigram_value = self.TRIGRAM_CHART[str(bits)]
 
 
-
 class Yao:
 
     AT_YANG_UNCHANGE = "[@@@@@@@@@@@@@@@@@@@@@@@]"
@@ -231,10 +272,10 @@ class Yao:
 
         self._YINYANG = lambda x: ["[0X0]", "Yin"] if x == 1 or x == 3 else ["[000]", "Yang"]
 
-        self._YINYANG_YOUNGOLD = {0: ["{000}", "Changing Yang   ", self.SH_YANG_CHANGING, 1],
-                                  1: ["[0X0]", "Unchanging Yin  ", self.AT_YIN_UNCHANGE, 0],
-                                  2: ["[000]", "Unchanging Yang ", self.AT_YANG_UNCHANGE, 1],
-                                  3: ["{0X0}", "Changing Yin    ", self.SH_YIN_CHANGING, 0]}
+        self._YINYANG_YOUNGOLD = {0: ["{000}", "Changing Yang   ", self.SH_YANG_CHANGING, 1, 1],
+                                  1: ["[0X0]", "Unchanging Yin  ", self.AT_YIN_UNCHANGE, 0, 0],
+                                  2: ["[000]", "Unchanging Yang ", self.AT_YANG_UNCHANGE, 1, 0],
+                                  3: ["{0X0}", "Changing Yin    ", self.SH_YIN_CHANGING, 0, 1]}
 
         self._TRANSFORMED = {0: [self.TRANSFORMED_YANG, "Transformed Yang"],
                                   1: [self.AT_YIN_UNCHANGE, "Unchanging Yin"],
@@ -416,7 +457,7 @@ class Doorway:
             self.methodManager = MethodManager()
             self.hex = Hexagram(self.methodManager.method)
             print("Think of an open ended question.")
-            print("If the answer can be answered with a 'yes,' or a 'no' you are throwing wrong.")
+            print("If the question can be answered with a 'yes,' or a 'no' you are throwing wrong.")
             self.question = input("If you like, type your question out here, otherwise hold the question in your mind then press and hold enter: ")
             print("..........................")
         except:
