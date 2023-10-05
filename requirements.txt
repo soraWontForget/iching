@@ -1,0 +1,2 @@
+pyserial==3.5
+RFExplorer==1.33.2106.3

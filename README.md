@@ -1,4 +1,7 @@
 # I Ching
+## Install necessary packages
+> python -m pip install -r requirements.txt 
+
 ## To run:
 > python Hexagram.py
 

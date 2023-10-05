@@ -113,7 +113,6 @@ class Hexagram:
         for i in self._hexagram:
             i.print_transformed()
 
-
     def _print_meaning(self, hex_number=None):
         if hex_number:
             self._print_transformed_meaning()
@@ -129,7 +128,6 @@ class Hexagram:
         print("I Interpretation: " + self._hex_model.image[1])
         self._print_changing_lines()
 
-
     def _print_transformed_meaning(self):
         print("Hex Number: " + str(self._hex_model.number))
         print("Description: " + self._hex_model.description)
@@ -137,7 +135,6 @@ class Hexagram:
         print("J Interpretation: " + self._hex_model.judgement[1])
         print("Image: " + self._hex_model.image[0])
         print("I Interpretation: " + self._hex_model.image[1])
-
 
     def _print_changing_lines(self):
         counter = 0
@@ -151,7 +148,6 @@ class Hexagram:
                 counter += 1
             tri._trigram_yaos.reverse()
         self._hexagram.reverse()
-
 
 class HexModel:
 
@@ -242,7 +238,6 @@ class Trigram:
             bits.append(i.yao_name_young_old[3])
         self._trigram_yaos.reverse()
         self.trigram_value = self.TRIGRAM_CHART[str(bits)]
-
 
 class Yao:
 
