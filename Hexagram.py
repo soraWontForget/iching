@@ -31,6 +31,7 @@ import time
 import RFExplorer
 from RFExplorer import RFE_Common
 import xml.etree.ElementTree as et
+from openai import OpenAI
 
 
 class Hexagram:
@@ -64,6 +65,9 @@ class Hexagram:
         self._hexagram.append(self._lower_trigram)
         self._hexagram.append(self._upper_trigram)
 
+    def get_hex_num(self):
+        return self._hex_model.number
+
     def flip_yaos(self):
         if self._method == 1:
             for i in self._hexagram:
@@ -96,13 +100,14 @@ class Hexagram:
         print(self.BLANK + " | " + self._hex_model.name + " | ")
         print(self.DASHED)
         print("\n")
-        self._print_meaning()
-        print(self.DASHED)
-        print(self.BLANK + " | " + self._hex_model.name + " | ")
-        self._print_transformed()
-        print(self.BLANK + " | " + self._hex_model.name + " | ")
-        print(self.DASHED)
-        # self._print_meaning(self._hex_model.number)
+        _ = self._print_meaning().copy()
+        if len(_) > 0:
+            print(self.DASHED)
+            print(self.BLANK + " | " + self._hex_model.name + " | ")
+            self._print_transformed()
+            print(self.BLANK + " | " + self._hex_model.name + " | ")
+            print(self.DASHED)
+        return _.copy()
 
     def _print_primary(self):
         for i in self._hexagram:
@@ -116,7 +121,7 @@ class Hexagram:
         if hex_number:
             self._print_transformed_meaning()
         else:
-            self._print_primary_meaning()
+            return self._print_primary_meaning().copy()
 
     def _print_primary_meaning(self):
         print("Hex Number: " + str(self._hex_model.number))
@@ -125,7 +130,7 @@ class Hexagram:
         print("J Interpretation: " + self._hex_model.judgement[1])
         print("Image: " + self._hex_model.image[0])
         print("I Interpretation: " + self._hex_model.image[1])
-        self._print_changing_lines()
+        return self._print_changing_lines().copy()
 
     def _print_transformed_meaning(self):
         print("Hex Number: " + str(self._hex_model.number))
@@ -137,14 +142,17 @@ class Hexagram:
 
     def _print_changing_lines(self):
         counter = 1
+        transformed = []
         self._hexagram.reverse()
         for tri in self._hexagram:
             for yao in tri._trigram_yaos:
                 if yao.yao_name_young_old[4] == 1:
                     print("Line {}".format(counter) + self._hex_model.lines[counter][0])
                     print("Line {} Interpretation: ".format(counter) + self._hex_model.lines[counter][1])
+                    transformed.append(counter)
                 counter += 1
         self._hexagram.reverse()
+        return transformed.copy()
 
 class HexModel:
 
@@ -454,12 +462,37 @@ class Doorway:
             print("..........................")
         except:
             print("Please input a valid option.")
-            self.__init__()
+            # self.__init__()
 
     def cast(self):
         self.hex.flip_yaos()
         print("Q:" + self.question)
-        self.hex.print()
+        client = OpenAI()
+        lines = self.hex.print()
+        if len(lines) > 0:
+            string = "Please interpret the following question in the context of this hexagram:\
+                 question:{} \
+                 hexagram:{} \
+                 Please also interpret within the context of lines {}".format(self.question, self.hex.get_hex_num(), lines)
+        else:
+            string = "Please interpret the following question in the context of this hexagram:\
+                 question:{} \
+                 hexagram:{}".format(self.question, self.hex.get_hex_num())
+        completion = client.chat.completions.create(
+            # model="gpt-3.5-turbo",
+            model="gpt-4",
+            messages=[
+                # {"role": "system",
+                #  "content": "You are a fortune teller, an oracle, and a mystic. You specialize in the i ching"},
+                # {"role": "user", "content": string}
+                {"role": "user", "content": string}
+            ]
+        )
+
+        message = completion.choices[0].message.content.split("\n")
+        for i in message:
+            print(i)
+
 
 
 if __name__ == "__main__":
