@@ -64,7 +64,6 @@ class Hexagram:
         self._hexagram.append(self._lower_trigram)
         self._hexagram.append(self._upper_trigram)
 
-
     def flip_yaos(self):
         if self._method == 1:
             for i in self._hexagram:
@@ -137,16 +136,14 @@ class Hexagram:
         print("I Interpretation: " + self._hex_model.image[1])
 
     def _print_changing_lines(self):
-        counter = 0
+        counter = 1
         self._hexagram.reverse()
         for tri in self._hexagram:
-            tri._trigram_yaos.reverse()
             for yao in tri._trigram_yaos:
                 if yao.yao_name_young_old[4] == 1:
-                    print("Line {}".format(counter + 1) + self._hex_model.lines[counter + 1][0])
-                    print("Line {} Interpretation: ".format(counter + 1) + self._hex_model.lines[counter + 1][1])
+                    print("Line {}".format(counter) + self._hex_model.lines[counter][0])
+                    print("Line {} Interpretation: ".format(counter) + self._hex_model.lines[counter][1])
                 counter += 1
-            tri._trigram_yaos.reverse()
         self._hexagram.reverse()
 
 class HexModel:
