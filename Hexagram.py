@@ -468,36 +468,41 @@ class Doorway:
     def cast(self):
         self.hex.flip_yaos()
         print("Q:" + self.question)
-        client = OpenAI()
         lines = self.hex.print()
-        if len(self.question) == 0:
-            string = "Please interpret the following hexagram as a general read for the current state of the querent's state of mind:\
-                             hexagram:{}".format(self.hex.get_hex_num())
-        else:
-            if len(lines) > 0:
-                string = "Please interpret the following question in the context of this hexagram:\
-                     question:{} \
-                     hexagram:{} \
-                     Please also interpret within the context of lines {}".format(self.question, self.hex.get_hex_num(), lines)
+        self.ai_interpretation(lines)
+
+    def ai_interpretation(self, lines):
+        try:
+            client = OpenAI()
+            if len(self.question) == 0:
+                string = "Please interpret the following hexagram as a general read for the current state of the querent's state of mind:\
+                                 hexagram:{}".format(self.hex.get_hex_num())
             else:
-                string = "Please interpret the following question in the context of this hexagram:\
-                     question:{} \
-                     hexagram:{}".format(self.question, self.hex.get_hex_num())
-        completion = client.chat.completions.create(
-            # model="gpt-3.5-turbo",
-            model="gpt-4",
-            messages=[
-                # {"role": "system",
-                #  "content": "You are a fortune-teller, an oracle, and a mystic. You specialize in the i ching"},
-                # {"role": "user", "content": string}
-                {"role": "user", "content": string}
-            ]
-        )
+                if len(lines) > 0:
+                    string = "Please interpret the following question in the context of this hexagram:\
+                         question:{} \
+                         hexagram:{} \
+                         Please also interpret within the context of lines {}".format(self.question, self.hex.get_hex_num(), lines)
+                else:
+                    string = "Please interpret the following question in the context of this hexagram:\
+                         question:{} \
+                         hexagram:{}".format(self.question, self.hex.get_hex_num())
+            completion = client.chat.completions.create(
+                # model="gpt-3.5-turbo",
+                model="gpt-4",
+                messages=[
+                    # {"role": "system",
+                    #  "content": "You are a fortune-teller, an oracle, and a mystic. You specialize in the i ching"},
+                    # {"role": "user", "content": string}
+                    {"role": "user", "content": string}
+                ]
+            )
+            message = completion.choices[0].message.content.split("\n")
 
-        message = completion.choices[0].message.content.split("\n")
-        for i in message:
-            print(i)
-
+            for i in message:
+                print(i)
+        except:
+            print("No ai")
 
 
 if __name__ == "__main__":
