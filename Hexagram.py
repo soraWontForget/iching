@@ -224,14 +224,14 @@ class Trigram:
         self._trigram_yaos.reverse()
         for i in self._trigram_yaos:
             j = i.print_primary()
-            print(j[2][2] + " | " + j[2][1])
+            print(j[2][2] + " | " + j[2][1] + "\n")
         self._trigram_yaos.reverse()
 
     def print_transformed(self):
         self._trigram_yaos.reverse()
         for i in self._trigram_yaos:
             j = i.print_transformed()
-            print(j[1][0] + " | " + j[1][1])
+            print(j[1][0] + " | " + j[1][1] + "\n")
         self._trigram_yaos.reverse()
 
     def _calc_trigram(self):
@@ -244,13 +244,19 @@ class Trigram:
 
 class Yao:
 
-    AT_YANG_UNCHANGE = "[@@@@@@@@@@@@@@@@@@@@@@@]"
-    AT_YIN_UNCHANGE = "[@@@@@@@@       @@@@@@@@]"
-    SH_YANG_CHANGING = "[#######################]"
-    SH_YIN_CHANGING = "[########       ########]"
-    TRANSFORMED_YANG = "[&&&&&&&&       &&&&&&&&]"
-    TRANSFORMED_YIN = "[&&&&&&&&&&&&&&&&&&&&&&&]"
+    # AT_YANG_UNCHANGE = "[@@@@@@@@@@@@@@@@@@@@@@@]"
+    # AT_YIN_UNCHANGE = "[@@@@@@@@       @@@@@@@@]"
+    # SH_YANG_CHANGING = "[#######################]"
+    # SH_YIN_CHANGING = "[########       ########]"
+    # TRANSFORMED_YANG = "[&&&&&&&&       &&&&&&&&]"
+    # TRANSFORMED_YIN = "[&&&&&&&&&&&&&&&&&&&&&&&]"
 
+    AT_YANG_UNCHANGE = "[▓█████████████████████████████▓]"
+    AT_YIN_UNCHANGE = "[▓████████▓           ▓████████▓]"
+    SH_YANG_CHANGING = "[▓████████▓ ▌ ░▒█▒░ ▐ ▓████████▓]"
+    SH_YIN_CHANGING = "[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]"
+    TRANSFORMED_YANG = "[▓██████████████░██████████████▓]"
+    TRANSFORMED_YIN = "[▓████████▓     ░     ▓████████▓]"
 
     def __init__(self, method, rf_exp=None):
         self._c1 = Coin(method, rf_exp)
@@ -457,7 +463,7 @@ class Doorway:
             self.methodManager = MethodManager()
             self.hex = Hexagram(self.methodManager.method)
             print("Think of an open ended question.")
-            print("If the question can be answered with a 'yes,' or a 'no' you are throwing wrong.")
+            print("'Yes,' or 'no' questions may get mixed results.")
             self.question = input("Type your question out here and hold the question in your mind, then press and hold enter/return key \n" +\
                                   "If you don't have a question, clear your mind, then press and hold the enter/return key:")
             print("..........................")
@@ -499,6 +505,8 @@ class Doorway:
             )
             message = completion.choices[0].message.content.split("\n")
 
+            print("\n")
+            print("AI Interpretation:\n")
             for i in message:
                 print(i)
         except:
