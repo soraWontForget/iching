@@ -100,14 +100,14 @@ class Hexagram:
         print(self.BLANK + " | " + self._hex_model.name + " | ")
         print(self.DASHED)
         print("\n")
-        _ = self._print_meaning().copy()
-        if len(_) > 0:
+        transformed = self._print_meaning().copy()
+        if len(transformed) > 0:
             print(self.DASHED)
             print(self.BLANK + " | " + self._hex_model.name + " | ")
             self._print_transformed()
             print(self.BLANK + " | " + self._hex_model.name + " | ")
             print(self.DASHED)
-        return _.copy()
+        return transformed.copy()
 
     def _print_primary(self):
         for i in self._hexagram:
@@ -221,7 +221,6 @@ class Trigram:
         self._calc_trigram()
 
     def print_primary(self):
-        _ = []
         self._trigram_yaos.reverse()
         for i in self._trigram_yaos:
             j = i.print_primary()
@@ -229,7 +228,6 @@ class Trigram:
         self._trigram_yaos.reverse()
 
     def print_transformed(self):
-        _ = []
         self._trigram_yaos.reverse()
         for i in self._trigram_yaos:
             j = i.print_transformed()
@@ -302,10 +300,12 @@ class Yao:
 
     def _sum_coins(self):
         _sum = 0
+        # _second_sum = 0
 
         for i in self._yao:
             if i.get_state():
                 _sum = i.get_state()[0] + _sum
+                # _second_sum = i.get_state()[1] + _sum
 
         return _sum
 
@@ -458,7 +458,8 @@ class Doorway:
             self.hex = Hexagram(self.methodManager.method)
             print("Think of an open ended question.")
             print("If the question can be answered with a 'yes,' or a 'no' you are throwing wrong.")
-            self.question = input("If you like, type your question out here, otherwise hold the question in your mind then press and hold enter: ")
+            self.question = input("Type your question out here and hold the question in your mind, then press and hold enter/return key \n" +\
+                                  "If you don't have a question, clear your mind, then press and hold the enter/return key:")
             print("..........................")
         except:
             print("Please input a valid option.")
@@ -469,21 +470,25 @@ class Doorway:
         print("Q:" + self.question)
         client = OpenAI()
         lines = self.hex.print()
-        if len(lines) > 0:
-            string = "Please interpret the following question in the context of this hexagram:\
-                 question:{} \
-                 hexagram:{} \
-                 Please also interpret within the context of lines {}".format(self.question, self.hex.get_hex_num(), lines)
+        if len(self.question) == 0:
+            string = "Please interpret the following hexagram as a general read for the current state of the querent's state of mind:\
+                             hexagram:{}".format(self.hex.get_hex_num())
         else:
-            string = "Please interpret the following question in the context of this hexagram:\
-                 question:{} \
-                 hexagram:{}".format(self.question, self.hex.get_hex_num())
+            if len(lines) > 0:
+                string = "Please interpret the following question in the context of this hexagram:\
+                     question:{} \
+                     hexagram:{} \
+                     Please also interpret within the context of lines {}".format(self.question, self.hex.get_hex_num(), lines)
+            else:
+                string = "Please interpret the following question in the context of this hexagram:\
+                     question:{} \
+                     hexagram:{}".format(self.question, self.hex.get_hex_num())
         completion = client.chat.completions.create(
             # model="gpt-3.5-turbo",
             model="gpt-4",
             messages=[
                 # {"role": "system",
-                #  "content": "You are a fortune teller, an oracle, and a mystic. You specialize in the i ching"},
+                #  "content": "You are a fortune-teller, an oracle, and a mystic. You specialize in the i ching"},
                 # {"role": "user", "content": string}
                 {"role": "user", "content": string}
             ]
