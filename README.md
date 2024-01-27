@@ -19,22 +19,22 @@
 2. Response output:
 
 Q:What's the best approach for instilling mindfulness into my family members that don't necessarily accept or believe in this practice as a method for mental wellbeing?
-[-----------------------]
-[                       ] | Modesty | 
-[▓████████▓           ▓████████▓] | Unchanging Yin  
+[-----------------------------]
+[                             ] | Modesty | 
+[▓████████▓         ▓████████▓] | Unchanging Yin  
 
-[▓████████▓           ▓████████▓] | Unchanging Yin  
+[▓████████▓         ▓████████▓] | Unchanging Yin  
 
-[▓████████▓           ▓████████▓] | Unchanging Yin  
+[▓████████▓         ▓████████▓] | Unchanging Yin  
 
-[▓█████████████████████████████▓] | Unchanging Yang 
+[▓███████████████████████████▓] | Unchanging Yang 
 
-[▓████████▓           ▓████████▓] | Unchanging Yin  
+[▓████████▓         ▓████████▓] | Unchanging Yin  
 
-[▓████████▓           ▓████████▓] | Unchanging Yin  
+[▓████████▓         ▓████████▓] | Unchanging Yin  
 
-[                       ] | Modesty | 
-[-----------------------]
+[                             ] | Modesty | 
+[-----------------------------]
 
 
 Hex Number: 15

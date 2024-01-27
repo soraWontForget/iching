@@ -24,8 +24,6 @@
 # machine's environment.
 #
 # TODO: Implement other methods/sources for truly random generated numbers.
-# TODO: Produce more visually appealing hexagrams.
-# TODO: Add interpretation for transformed hexagram.
 # ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*
 import secrets
 import time
@@ -37,8 +35,8 @@ from openai import OpenAI
 
 class Hexagram:
 
-    BLANK = "[                       ]"
-    DASHED = "[-----------------------]"
+    BLANK = "[                             ]"
+    DASHED = "[-----------------------------]"
     HEX_CHART = {'[1, 1]': 1, '[1, 4]': 33, '[1, 6]': 44, '[1, 5]': 12, '[1, 8]': 10, '[1, 7]': 13, '[1, 3]': 6, '[1, 2]': 25,
                  '[4, 1]': 26, '[4, 4]': 52, '[4, 6]': 18, '[4, 5]': 23, '[4, 8]': 41, '[4, 7]': 22, '[4, 3]': 4, '[4, 2]': 27,
                  '[6, 1]': 9, '[6, 4]': 53, '[6, 6]': 57, '[6, 5]': 20, '[6, 8]': 61, '[6, 7]': 37, '[6, 3]': 59, '[6, 2]': 42,
@@ -54,6 +52,7 @@ class Hexagram:
         self._rf_exp_inst = None
         self._method = method
         self._hex_model = None
+        self._hex_transformed_model = None
         if int(self._method) == 2:
             print("init rf explorer...")
             self._rf_exp = RFExplorer.RFECommunicator()
@@ -67,7 +66,7 @@ class Hexagram:
         self._hexagram.append(self._upper_trigram)
 
     def get_hex_num(self):
-        return self._hex_model.number
+        return [self._hex_model.number, self._hex_transformed_model.number]
 
     def flip_yaos(self):
         if self._method == 1:
@@ -92,37 +91,48 @@ class Hexagram:
             self._rf_exp = None
 
     def print(self):
-        parser = Parser()
-        hex = parser.get_hexagram(self.HEX_CHART[str([self._hexagram[0].trigram_value, self._hexagram[1].trigram_value])])
-        self._hex_model = HexModel(**hex)
-        print(self.DASHED)
-        print(self.BLANK + " | " + self._hex_model.name + " | ")
-        self._print_primary()
-        print(self.BLANK + " | " + self._hex_model.name + " | ")
-        print(self.DASHED)
-        print("\n")
-        transformed = self._print_meaning().copy()
-        if len(transformed) > 0:
-            print(self.DASHED)
-            print(self.BLANK + " | " + self._hex_model.name + " | ")
+        self._parse()
+        lines = self._print_primary()
+
+        if len(lines) > 0:
             self._print_transformed()
-            print(self.BLANK + " | " + self._hex_model.name + " | ")
-            print(self.DASHED)
-        return transformed.copy()
+
+        return lines.copy()
+
+    def _parse(self):
+        parser = Parser()
+        hex = parser.get_hexagram(
+            self.HEX_CHART[str([self._hexagram[0].trigram_value, self._hexagram[1].trigram_value])])
+        hex_transformed = parser.get_hexagram(self.HEX_CHART[str([self._hexagram[0].trigram_transformed_value,
+                                                                  self._hexagram[1].trigram_transformed_value])])
+        self._hex_model = HexModel(**hex)
+        self._hex_transformed_model = HexModel(**hex_transformed)
 
     def _print_primary(self):
+        print(self.DASHED)
+        print(self.BLANK + " | " + self._hex_model.name + " | ")
+
         for i in self._hexagram:
             i.print_primary()
 
+        print(self.BLANK + " | " + self._hex_model.name + " | ")
+        print(self.DASHED)
+        print("\n")
+
+        return self._print_primary_meaning()
+
     def _print_transformed(self):
+        print(self.DASHED)
+        print(self.BLANK + " | " + self._hex_transformed_model.name + " | ")
+
         for i in self._hexagram:
             i.print_transformed()
 
-    def _print_meaning(self, hex_number=None):
-        if hex_number:
-            self._print_transformed_meaning()
-        else:
-            return self._print_primary_meaning().copy()
+        print(self.BLANK + " | " + self._hex_transformed_model.name + " | ")
+        print(self.DASHED)
+        print("\n")
+
+        self._print_transformed_meaning()
 
     def _print_primary_meaning(self):
         print("Hex Number: " + str(self._hex_model.number))
@@ -134,26 +144,36 @@ class Hexagram:
         return self._print_changing_lines().copy()
 
     def _print_transformed_meaning(self):
-        print("Hex Number: " + str(self._hex_model.number))
-        print("Description: " + self._hex_model.description)
-        print("Judgement: " + self._hex_model.judgement[0])
-        print("J Interpretation: " + self._hex_model.judgement[1])
-        print("Image: " + self._hex_model.image[0])
-        print("I Interpretation: " + self._hex_model.image[1])
+        print("Hex Number: " + str(self._hex_transformed_model.number))
+        print("Description: " + self._hex_transformed_model.description)
+        print("Judgement: " + self._hex_transformed_model.judgement[0])
+        print("J Interpretation: " + self._hex_transformed_model.judgement[1])
+        print("Image: " + self._hex_transformed_model.image[0])
+        print("I Interpretation: " + self._hex_transformed_model.image[1])
+        self._print_changing_lines(1).copy()
 
-    def _print_changing_lines(self):
+    def _print_changing_lines(self, tf=None):
         counter = 1
         transformed = []
         self._hexagram.reverse()
-        for tri in self._hexagram:
-            for yao in tri._trigram_yaos:
-                if yao.yao_name_young_old[4] == 1:
-                    print("Line {}".format(counter) + self._hex_model.lines[counter][0])
-                    print("Line {} Interpretation: ".format(counter) + self._hex_model.lines[counter][1])
-                    transformed.append(counter)
-                counter += 1
+        if tf:
+            for tri in self._hexagram:
+                for yao in tri._trigram_yaos:
+                    if yao.yao_name_young_old[4] == 1:
+                        print("Line {}".format(counter) + self._hex_transformed_model.lines[counter][0])
+                        print("Line {} Interpretation: ".format(counter) + self._hex_transformed_model.lines[counter][1])
+                    counter += 1
+        else:
+            for tri in self._hexagram:
+                for yao in tri._trigram_yaos:
+                    if yao.yao_name_young_old[4] == 1:
+                        print("Line {}".format(counter) + self._hex_model.lines[counter][0])
+                        print("Line {} Interpretation: ".format(counter) + self._hex_model.lines[counter][1])
+                        transformed.append(counter)
+                    counter += 1
         self._hexagram.reverse()
         return transformed.copy()
+
 
 class HexModel:
 
@@ -202,7 +222,8 @@ class Trigram:
     def __init__(self, method, rf_exp=None):
         self._trigram_yaos = []
         self.trigram_value = None
-        self.trigram_name = None
+        self.trigram_transformed_value = None
+        # self.trigram_name = None
 
         self._y0 = Yao(method, rf_exp)
         self._y1 = Yao(method, rf_exp)
@@ -212,6 +233,7 @@ class Trigram:
         self._trigram_yaos.append(self._y1)
         self._trigram_yaos.append(self._y2)
 
+
     def flip_coins(self, rf_exp=None):
         if rf_exp:
             for i in self._trigram_yaos:
@@ -220,6 +242,7 @@ class Trigram:
             for i in self._trigram_yaos:
                 i.flip_coins()
         self._calc_trigram()
+        self._calc_transformed_trigram()
 
     def print_primary(self):
         self._trigram_yaos.reverse()
@@ -243,15 +266,23 @@ class Trigram:
         self._trigram_yaos.reverse()
         self.trigram_value = self.TRIGRAM_CHART[str(bits)]
 
+    def _calc_transformed_trigram(self):
+        bits = []
+        self._trigram_yaos.reverse()
+        for i in self._trigram_yaos:
+            bits.append(i.yao_name_transformed[2])
+        self._trigram_yaos.reverse()
+        self.trigram_transformed_value = self.TRIGRAM_CHART[str(bits)]
+
 
 class Yao:
 
-    SOLID_YANG_UNCHANGE = "[▓█████████████████████████████▓]"
-    BROKEN_YIN_UNCHANGE = "[▓████████▓           ▓████████▓]"
-    SOLID_YANG_CHANGING = "[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]"
-    BROKEN_YIN_CHANGING = "[▓████████▓ ▌ ░▒█▒░ ▐ ▓████████▓]"
-    BROKEN_YANG_TRANSFORMED = "[▓████████▓     ░     ▓████████▓]"
-    SOLID_YIN_TRANSFORMED = "[▓██████████████░██████████████▓]"
+    SOLID_YANG_UNCHANGE = "[▓███████████████████████████▓]"
+    BROKEN_YIN_UNCHANGE = "[▓████████▓         ▓████████▓]"
+    SOLID_YANG_CHANGING = "[▓░░░█████████████████████░░░▓]"
+    BROKEN_YIN_CHANGING = "[▓░░░█████░         ░█████░░░▓]"
+    BROKEN_YANG_TRANSFORMED = "[▓░░░░░░░░▓ ▌ ░█░ ▐ ▓░░░░░░░░▓]"
+    SOLID_YIN_TRANSFORMED = "[▓░░░░░░░░░░░░░░░░░░░░░░░░░░░▓]"
 
     def __init__(self, method, rf_exp=None):
         self._c1 = Coin(method, rf_exp)
@@ -267,7 +298,7 @@ class Yao:
 
         self._yao_name_yinyang = None
         self.yao_name_young_old = None
-        self._yao_name_transformed = None
+        self.yao_name_transformed = None
 
         self._YINYANG = lambda x: ["[0X0]", "Yin"] if x == 1 or x == 3 else ["[000]", "Yang"]
 
@@ -276,10 +307,10 @@ class Yao:
                                   2: ["[000]", "Unchanging Yang ", self.SOLID_YANG_UNCHANGE, 1, 0],
                                   3: ["{0X0}", "Changing Yin    ", self.BROKEN_YIN_CHANGING, 0, 1]}
 
-        self._TRANSFORMED = {0: [self.BROKEN_YANG_TRANSFORMED, "Transformed Yang"],
-                                  1: [self.BROKEN_YIN_UNCHANGE, "Unchanging Yin"],
-                                  2: [self.SOLID_YANG_UNCHANGE, "Unchanged Yang"],
-                                  3: [self.SOLID_YIN_TRANSFORMED, "Transformed Yin"]}
+        self._TRANSFORMED = {0: [self.BROKEN_YANG_TRANSFORMED, "Transformed Yang", 0],
+                                  1: [self.BROKEN_YIN_UNCHANGE, "Unchanging Yin", 0],
+                                  2: [self.SOLID_YANG_UNCHANGE, "Unchanged Yang", 1],
+                                  3: [self.SOLID_YIN_TRANSFORMED, "Transformed Yin", 1]}
 
     def flip_coins(self, rf_exp=None):
         if rf_exp:
@@ -296,7 +327,7 @@ class Yao:
 
         self._yao_name_yinyang = self._YINYANG(_sum)
         self.yao_name_young_old = self._YINYANG_YOUNGOLD[_sum]
-        self._yao_name_transformed = self._TRANSFORMED[_sum]
+        self.yao_name_transformed = self._TRANSFORMED[_sum]
         self._sum = _sum
 
     def _sum_coins(self):
@@ -315,7 +346,7 @@ class Yao:
         return [self._sum, self._yao_name_yinyang, self.yao_name_young_old]
 
     def print_transformed(self) :
-        return [self._sum, self._yao_name_transformed, self.yao_name_young_old]
+        return [self._sum, self.yao_name_transformed, self.yao_name_young_old]
 
 
 class Coin:
@@ -479,20 +510,26 @@ class Doorway:
                 if len(lines) > 0:
                     string = "Please interpret the following hexagram as a general read for the querent.\
                                              hexagram:{} \
-                                             Please also interpret within the context of lines {}".format(self.hex.get_hex_num(), lines)
+                                             Please also interpret within the context of lines {}".format(self.hex.get_hex_num()[0], lines)
+                    string = string + "Please also interpret the question in the context of the following transformed hexagram and lines:\
+                                                 hexagram: {}\
+                                                 lines: {}".format(self.hex.get_hex_num()[1], lines)
                 else:
                     string = "Please interpret the following hexagram as a general read for the querent.\
-                                            hexagram:{}".format(self.hex.get_hex_num())
+                                            hexagram:{}".format(self.hex.get_hex_num()[0])
             else:
                 if len(lines) > 0:
                     string = "Please interpret the following question in the context of this hexagram:\
                          question:{} \
                          hexagram:{} \
-                         Please also interpret within the context of lines {}".format(self.question, self.hex.get_hex_num(), lines)
+                         Please also interpret within the context of lines {}. ".format(self.question, self.hex.get_hex_num()[0], lines)
+                    string = string + "Please also interpret the question in the context of the following transformed hexagram and lines:\
+                             hexagram: {}\
+                             lines: {}".format(self.hex.get_hex_num()[1], lines)
                 else:
                     string = "Please interpret the following question in the context of this hexagram:\
                          question:{} \
-                         hexagram:{}".format(self.question, self.hex.get_hex_num())
+                         hexagram:{}".format(self.question, self.hex.get_hex_num()[0])
             completion = client.chat.completions.create(
                 # model="gpt-3.5-turbo",
                 model="gpt-4",
