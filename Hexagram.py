@@ -248,7 +248,7 @@ class Yao:
 
     SOLID_YANG_UNCHANGE = "[▓█████████████████████████████▓]"
     BROKEN_YIN_UNCHANGE = "[▓████████▓           ▓████████▓]"
-    SOLID_YANG_CHANGING = "[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]"
+    SOLID_YANG_CHANGING = "[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]"
     BROKEN_YIN_CHANGING = "[▓████████▓ ▌ ░▒█▒░ ▐ ▓████████▓]"
     BROKEN_YANG_TRANSFORMED = "[▓████████▓     ░     ▓████████▓]"
     SOLID_YIN_TRANSFORMED = "[▓██████████████░██████████████▓]"
@@ -476,8 +476,13 @@ class Doorway:
         try:
             client = OpenAI()
             if len(self.question) == 0:
-                string = "Please interpret the following hexagram as a general read for the querent.\
-                        hexagram:{}".format(self.hex.get_hex_num())
+                if len(lines) > 0:
+                    string = "Please interpret the following hexagram as a general read for the querent.\
+                                             hexagram:{} \
+                                             Please also interpret within the context of lines {}".format(self.hex.get_hex_num(), lines)
+                else:
+                    string = "Please interpret the following hexagram as a general read for the querent.\
+                                            hexagram:{}".format(self.hex.get_hex_num())
             else:
                 if len(lines) > 0:
                     string = "Please interpret the following question in the context of this hexagram:\
