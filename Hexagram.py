@@ -20,11 +20,12 @@
 # otherwise) produced during the process of translating the original text, as well as offset any meaning lost during
 # translation.
 #
+# The AI used in this program for interpretation is ChatGPT. Users will need to install their own API key into their
+# machine's environment.
 #
 # TODO: Implement other methods/sources for truly random generated numbers.
 # TODO: Produce more visually appealing hexagrams.
 # TODO: Add interpretation for transformed hexagram.
-# TODO: Only print out the transformed hexagram when necessary.
 # ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*
 import secrets
 import time
@@ -242,21 +243,15 @@ class Trigram:
         self._trigram_yaos.reverse()
         self.trigram_value = self.TRIGRAM_CHART[str(bits)]
 
+
 class Yao:
 
-    # AT_YANG_UNCHANGE = "[@@@@@@@@@@@@@@@@@@@@@@@]"
-    # AT_YIN_UNCHANGE = "[@@@@@@@@       @@@@@@@@]"
-    # SH_YANG_CHANGING = "[#######################]"
-    # SH_YIN_CHANGING = "[########       ########]"
-    # TRANSFORMED_YANG = "[&&&&&&&&       &&&&&&&&]"
-    # TRANSFORMED_YIN = "[&&&&&&&&&&&&&&&&&&&&&&&]"
-
-    AT_YANG_UNCHANGE = "[▓█████████████████████████████▓]"
-    AT_YIN_UNCHANGE = "[▓████████▓           ▓████████▓]"
-    SH_YANG_CHANGING = "[▓████████▓ ▌ ░▒█▒░ ▐ ▓████████▓]"
-    SH_YIN_CHANGING = "[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]"
-    TRANSFORMED_YANG = "[▓██████████████░██████████████▓]"
-    TRANSFORMED_YIN = "[▓████████▓     ░     ▓████████▓]"
+    SOLID_YANG_UNCHANGE = "[▓█████████████████████████████▓]"
+    BROKEN_YIN_UNCHANGE = "[▓████████▓           ▓████████▓]"
+    SOLID_YANG_CHANGING = "[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]"
+    BROKEN_YIN_CHANGING = "[▓████████▓ ▌ ░▒█▒░ ▐ ▓████████▓]"
+    BROKEN_YANG_TRANSFORMED = "[▓████████▓     ░     ▓████████▓]"
+    SOLID_YIN_TRANSFORMED = "[▓██████████████░██████████████▓]"
 
     def __init__(self, method, rf_exp=None):
         self._c1 = Coin(method, rf_exp)
@@ -276,15 +271,15 @@ class Yao:
 
         self._YINYANG = lambda x: ["[0X0]", "Yin"] if x == 1 or x == 3 else ["[000]", "Yang"]
 
-        self._YINYANG_YOUNGOLD = {0: ["{000}", "Changing Yang   ", self.SH_YANG_CHANGING, 1, 1],
-                                  1: ["[0X0]", "Unchanging Yin  ", self.AT_YIN_UNCHANGE, 0, 0],
-                                  2: ["[000]", "Unchanging Yang ", self.AT_YANG_UNCHANGE, 1, 0],
-                                  3: ["{0X0}", "Changing Yin    ", self.SH_YIN_CHANGING, 0, 1]}
+        self._YINYANG_YOUNGOLD = {0: ["{000}", "Changing Yang   ", self.SOLID_YANG_CHANGING, 1, 1],
+                                  1: ["[0X0]", "Unchanging Yin  ", self.BROKEN_YIN_UNCHANGE, 0, 0],
+                                  2: ["[000]", "Unchanging Yang ", self.SOLID_YANG_UNCHANGE, 1, 0],
+                                  3: ["{0X0}", "Changing Yin    ", self.BROKEN_YIN_CHANGING, 0, 1]}
 
-        self._TRANSFORMED = {0: [self.TRANSFORMED_YANG, "Transformed Yang"],
-                                  1: [self.AT_YIN_UNCHANGE, "Unchanging Yin"],
-                                  2: [self.AT_YANG_UNCHANGE, "Unchanged Yang"],
-                                  3: [self.TRANSFORMED_YIN, "Transformed Yin"]}
+        self._TRANSFORMED = {0: [self.BROKEN_YANG_TRANSFORMED, "Transformed Yang"],
+                                  1: [self.BROKEN_YIN_UNCHANGE, "Unchanging Yin"],
+                                  2: [self.SOLID_YANG_UNCHANGE, "Unchanged Yang"],
+                                  3: [self.SOLID_YIN_TRANSFORMED, "Transformed Yin"]}
 
     def flip_coins(self, rf_exp=None):
         if rf_exp:
@@ -481,8 +476,8 @@ class Doorway:
         try:
             client = OpenAI()
             if len(self.question) == 0:
-                string = "Please interpret the following hexagram as a general read for the current state of the querent's state of mind:\
-                                 hexagram:{}".format(self.hex.get_hex_num())
+                string = "Please interpret the following hexagram as a general read for the querent.\
+                        hexagram:{}".format(self.hex.get_hex_num())
             else:
                 if len(lines) > 0:
                     string = "Please interpret the following question in the context of this hexagram:\
@@ -499,7 +494,6 @@ class Doorway:
                 messages=[
                     # {"role": "system",
                     #  "content": "You are a fortune-teller, an oracle, and a mystic. You specialize in the i ching"},
-                    # {"role": "user", "content": string}
                     {"role": "user", "content": string}
                 ]
             )
