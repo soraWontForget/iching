@@ -8,10 +8,13 @@
 ## RNG Methods
 > 1. Built-in entropy
 > 2. RF Explorer Handheld Spectrum Analyzer
+> 3. QRNG Australia National University (ANU)
 
-## ChatGPT AI Implementation
-> 1. Install your own ChatGPT API key into your machine's environment.
-> 2. Enter your question as input, or enter nothing for a general read.
+## API Keys
+- Users will need to install their own API keys to use the ChatGPT and QRNG features.
+- This program makes use of Australia National University's QRNG equipment.
+- QRNG Australia National University (ANU) API: https://quantumnumbers.anu.edu.au/
+- ChatGPT API: https://help.openai.com/en/articles/7039783-how-can-i-access-the-chatgpt-api
 
 ## Example:
 ```
