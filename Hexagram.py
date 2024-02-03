@@ -21,16 +21,20 @@
 # translation.
 #
 # The AI used in this program for interpretation is ChatGPT. Users will need to install their own API key into their
-# machine's environment.
+# machine's environment. If used, users can implement the AI's interpretation of the results along with their own
+# interpretation.
 #
 # TODO: Implement other methods/sources for truly random generated numbers.
 # ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*
+import os.path
 import secrets
 import time
 import RFExplorer
 from RFExplorer import RFE_Common
 import xml.etree.ElementTree as et
 from openai import OpenAI
+import requests
+import json
 
 
 class Hexagram:
@@ -53,14 +57,15 @@ class Hexagram:
         self._method = method
         self._hex_model = None
         self._hex_transformed_model = None
-        if int(self._method) == 2:
-            print("init rf explorer...")
-            self._rf_exp = RFExplorer.RFECommunicator()
+        self._rf_exp = None
+        # if int(self._method) == 2:
+        #     print("init rf explorer...")
+        #     self._rf_exp = RFExplorer.RFECommunicator()
         self.set_trigrams()
 
     def set_trigrams(self):
-        self._lower_trigram = Trigram(self._method, self._rf_exp)
-        self._upper_trigram = Trigram(self._method, self._rf_exp)
+        self._lower_trigram = Trigram()
+        self._upper_trigram = Trigram()
 
         self._hexagram.append(self._lower_trigram)
         self._hexagram.append(self._upper_trigram)
@@ -69,7 +74,7 @@ class Hexagram:
         return [self._hex_model.number, self._hex_transformed_model.number]
 
     def flip_yaos(self):
-        if self._method == 1:
+        if int(self._method) == 1:
             for i in self._hexagram:
                 i.flip_coins()
         elif int(self._method) == 2:
@@ -86,9 +91,26 @@ class Hexagram:
                 while (self._rf_exp.ActiveModel == RFExplorer.RFE_Common.eModel.MODEL_NONE):
                     self._rf_exp.ProcessReceivedString(True)  # Process the received configuration
                 for i in self._hexagram:
-                    i.flip_coins(self._rf_exp)
+                    i.flip_coins(self._method, self._rf_exp)
             self._rf_exp.Close()  # Finish the thread and close port
             self._rf_exp = None
+        elif int(self._method) == 3:
+            counter = 0
+            url = "https://api.quantumnumbers.anu.edu.au?length=18&type=hex8&size=1"
+            headers = {"x-api-key": str(os.path.expandvars('$QRNG_API_KEY'))}
+            res = requests.get(url, headers=headers)
+            resp = json.loads(res.text)
+            print(json.loads(res.text))
+
+            hex_strings = []
+            hex_string_0 = resp['data'][:9]
+            hex_string_1 = resp['data'][9:]
+            hex_strings.append(hex_string_0.copy())
+            hex_strings.append(hex_string_1.copy())
+
+            for i in self._hexagram:
+                i.flip_coins(self._method, hex_strings[counter])
+                counter += 1
 
     def print(self):
         self._parse()
@@ -219,28 +241,35 @@ class Trigram:
     TRIGRAM_CHART = {'[1, 1, 1]': 1, '[0, 0, 1]': 2, '[0, 1, 0]': 3, '[1, 0, 0]': 4, '[0, 0, 0]': 5, '[1, 1, 0]': 6,
                      '[1, 0, 1]': 7, '[0, 1, 1]': 8}
 
-    def __init__(self, method, rf_exp=None):
+    def __init__(self):
         self._trigram_yaos = []
         self.trigram_value = None
         self.trigram_transformed_value = None
         # self.trigram_name = None
 
-        self._y0 = Yao(method, rf_exp)
-        self._y1 = Yao(method, rf_exp)
-        self._y2 = Yao(method, rf_exp)
+        self._y0 = Yao()
+        self._y1 = Yao()
+        self._y2 = Yao()
 
         self._trigram_yaos.append(self._y0)
         self._trigram_yaos.append(self._y1)
         self._trigram_yaos.append(self._y2)
 
 
-    def flip_coins(self, rf_exp=None):
-        if rf_exp:
+    def flip_coins(self, method=1, item=None):
+        if int(method) == 1:
             for i in self._trigram_yaos:
-                i.flip_coins(rf_exp)
-        else:
+                i.flip_coins(method)
+        elif int(method) == 2:
             for i in self._trigram_yaos:
-                i.flip_coins()
+                i.flip_coins(method, item)
+        elif int(method) == 3:
+            for i in self._trigram_yaos:
+                three_states = []
+                for j in range(0,3):
+                    three_states.append(item.pop())
+                i.flip_coins(method, three_states)
+                three_states = None
         self._calc_trigram()
         self._calc_transformed_trigram()
 
@@ -284,10 +313,10 @@ class Yao:
     BROKEN_YANG_TRANSFORMED = "[▓░░░░░░░░▓ ▌ ░█░ ▐ ▓░░░░░░░░▓]"
     SOLID_YIN_TRANSFORMED = "[▓░░░░░░░░░░░░░░░░░░░░░░░░░░░▓]"
 
-    def __init__(self, method, rf_exp=None):
-        self._c1 = Coin(method, rf_exp)
-        self._c2 = Coin(method, rf_exp)
-        self._c3 = Coin(method, rf_exp)
+    def __init__(self):
+        self._c1 = Coin()
+        self._c2 = Coin()
+        self._c3 = Coin()
 
         self._yao = []
         self._yao.append(self._c1)
@@ -312,15 +341,17 @@ class Yao:
                                   2: [self.SOLID_YANG_UNCHANGE, "Unchanged Yang", 1],
                                   3: [self.SOLID_YIN_TRANSFORMED, "Transformed Yin", 1]}
 
-    def flip_coins(self, rf_exp=None):
-        if rf_exp:
+    def flip_coins(self, method=None, item=None):
+        if int(method) == 1:
             for i in self._yao:
-                i.flip(rf_exp)
-            self._calc_name()
-        else:
+                i.flip(method)
+        elif int(method) == 2:
             for i in self._yao:
-                i.flip()
-            self._calc_name()
+                i.flip(method, item)
+        elif int(method) == 3:
+            for i in self._yao:
+                i.flip(method, item.pop())
+        self._calc_name()
 
     def _calc_name(self):
         _sum = self._sum_coins()
@@ -351,39 +382,46 @@ class Yao:
 
 class Coin:
 
-    def __init__(self, method, rf_exp=None):
+    def __init__(self):
         self._state = None
-        self._method = method
-        self._rf_exp = rf_exp
+        # self._method = method
+        # self._rf_exp = rf_exp
 
         self._calc_state = lambda x: [0, "[ 0 ]"] if x == 0 else [1, "[ 1 ]"]
         self.count = 0
         self._dot = "."
 
-    def flip(self, rf_exp=None):
-        _ = self._gen_state(rf_exp)
+    def flip(self, method=None, item=None):
+        _ = self._gen_state(method, item)
         print(self._dot*self.count)
         self.count += 1
         self._set_state(self._calc_state(_))
 
-    def _gen_state(self, rf_exp):
+    def _gen_state(self, method, item):
+        state=None
         freq = []
-        _ = self._method
-        if int(self._method) == 2:
+        _ = method
+
+        if int(method) == 1:
+            input("Press and hold 'return/enter' while thinking of your question to proceed.")
+            state = secrets.randbelow(2)
+        elif int(method) == 2:
             input("Press and hold 'return/enter' while thinking of your question to proceed.")
             counter = 0
             while counter < 2:
                 #Process all received data from device
-                rf_exp.ProcessReceivedString(True)
-                _ = self._sweep_rf(rf_exp)
+                item.ProcessReceivedString(True)
+                _ = self._sweep_rf(item)
                 print(_)
                 freq.append(_)
                 counter += 1
                 time.sleep(0.3)
             state = self._diff_freq(freq[0], freq[1])
-        else:
-            input("Press and hold 'return/enter' while thinking of your question to proceed.")
-            state = secrets.randbelow(2)
+        elif int(method) == 3:
+            integer_value = int(item, 16)
+            num_bytes = (integer_value.bit_length() + 7) // 8
+            byte_value = integer_value.to_bytes(num_bytes, 'big')
+            state = (int.from_bytes(byte_value, 'big') % 2)
 
         return state
 
@@ -471,11 +509,12 @@ class MethodManager:
     def _select_method(self):
         print("1. /dev/random")
         print("2. RF Explorer")
+        print("3. QRNG Australia National University (ANU)")
         inp = input("Select Method: ")
         _ = str(inp).isnumeric()
         if _:
             inp = int(inp)
-            if (inp < 3 and inp > 0):
+            if (inp < 4 and inp > 0):
                 self.method = inp
                 print("Method: {} selected".format(self.method))
         else:
