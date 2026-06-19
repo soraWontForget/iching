@@ -28,7 +28,10 @@
 # ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*
 import os.path
 import secrets
+import sys
 import time
+from datetime import datetime
+from pathlib import Path
 import RFExplorer
 from RFExplorer import RFE_Common
 import xml.etree.ElementTree as et
@@ -111,6 +114,17 @@ class Hexagram:
             for i in self._hexagram:
                 i.flip_coins(self._method, hex_strings[counter])
                 counter += 1
+        elif int(self._method) == 4:
+            manual_throws = ManualThrowInput().collect()
+            self.set_manual_throws(manual_throws)
+
+    def set_manual_throws(self, manual_throws):
+        if len(manual_throws) != 6:
+            raise ValueError("A hexagram requires exactly six line throws.")
+
+        # The existing chart/print flow stores the upper trigram before the lower trigram.
+        self._hexagram[0].set_throws(manual_throws[3:6])
+        self._hexagram[1].set_throws(manual_throws[0:3])
 
     def print(self):
         self._parse()
@@ -273,6 +287,16 @@ class Trigram:
         self._calc_trigram()
         self._calc_transformed_trigram()
 
+    def set_throws(self, throws):
+        if len(throws) != 3:
+            raise ValueError("A trigram requires exactly three line throws.")
+
+        for yao, coin_states in zip(self._trigram_yaos, throws):
+            yao.set_coin_states(coin_states)
+
+        self._calc_trigram()
+        self._calc_transformed_trigram()
+
     def print_primary(self):
         self._trigram_yaos.reverse()
         for i in self._trigram_yaos:
@@ -351,6 +375,15 @@ class Yao:
         elif int(method) == 3:
             for i in self._yao:
                 i.flip(method, item.pop())
+        self._calc_name()
+
+    def set_coin_states(self, states):
+        if len(states) != 3:
+            raise ValueError("A yao requires exactly three coin states.")
+
+        for coin, state in zip(self._yao, states):
+            coin.set_state_from_bit(state)
+
         self._calc_name()
 
     def _calc_name(self):
@@ -445,8 +478,83 @@ class Coin:
     def _set_state(self, state):
         self._state = state
 
+    def set_state_from_bit(self, state):
+        state = int(state)
+        if state not in (0, 1):
+            raise ValueError("Coin state must be 0 or 1.")
+
+        self._set_state(self._calc_state(state))
+
     def get_state(self):
         return self._state
+
+
+class ManualThrowInput:
+
+    TOTALS = {
+        "6": [1, 1, 1],
+        "7": [0, 1, 1],
+        "8": [0, 0, 1],
+        "9": [0, 0, 0]
+    }
+    LINE_NAMES = {
+        "old yin": [1, 1, 1],
+        "changing yin": [1, 1, 1],
+        "young yang": [0, 1, 1],
+        "unchanging yang": [0, 1, 1],
+        "young yin": [0, 0, 1],
+        "unchanging yin": [0, 0, 1],
+        "old yang": [0, 0, 0],
+        "changing yang": [0, 0, 0]
+    }
+    WORDS = {
+        "h": 0,
+        "head": 0,
+        "heads": 0,
+        "t": 1,
+        "tail": 1,
+        "tails": 1
+    }
+
+    def collect(self):
+        print("Manual three-coin entry")
+        print("Enter six lines from bottom to top.")
+        print("Use H/T coin throws like HHT or TTT, or enter traditional totals 6, 7, 8, or 9.")
+
+        manual_throws = []
+        for line_num in range(1, 7):
+            while True:
+                raw = input("Line {}: ".format(line_num))
+                try:
+                    manual_throws.append(self.parse_throw(raw))
+                    break
+                except ValueError as err:
+                    print(err)
+
+        return manual_throws
+
+    def parse_throw(self, raw):
+        cleaned = raw.strip().lower()
+        compact = "".join(ch for ch in cleaned if ch.isalnum())
+
+        if compact in self.TOTALS:
+            return self.TOTALS[compact].copy()
+
+        if cleaned in self.LINE_NAMES:
+            return self.LINE_NAMES[cleaned].copy()
+
+        if len(compact) == 3 and all(ch in "ht" for ch in compact):
+            return [self.WORDS[ch] for ch in compact]
+
+        if len(compact) == 3 and all(ch in "01" for ch in compact):
+            return [int(ch) for ch in compact]
+
+        tokens = [token.strip(" ,-/") for token in cleaned.split()]
+        tokens = [token for token in tokens if token]
+        if len(tokens) == 3 and all(token in self.WORDS for token in tokens):
+            return [self.WORDS[token] for token in tokens]
+
+        raise ValueError("Enter three coins like HHT/heads heads tails, or a line total of 6, 7, 8, or 9.")
 
 
 class Parser:
@@ -502,21 +610,34 @@ class Parser:
 
 class MethodManager:
 
+    METHOD_NAMES = {
+        1: "/dev/random",
+        2: "RF Explorer",
+        3: "QRNG Australia National University (ANU)",
+        4: "Manual three-coin throws"
+    }
+
     def __init__(self):
         self.method = None
         self._select_method()
+
+    def get_method_name(self):
+        return self.METHOD_NAMES.get(int(self.method), str(self.method))
 
     def _select_method(self):
         print("1. /dev/random")
         print("2. RF Explorer")
         print("3. QRNG Australia National University (ANU)")
+        print("4. Manual three-coin throws")
         inp = input("Select Method: ")
         _ = str(inp).isnumeric()
         if _:
             inp = int(inp)
-            if (inp < 4 and inp > 0):
+            if (inp < 5 and inp > 0):
                 self.method = inp
                 print("Method: {} selected".format(self.method))
+            else:
+                raise KeyboardInterrupt
         else:
             raise KeyboardInterrupt
 
@@ -537,10 +658,20 @@ class Doorway:
             # self.__init__()
 
     def cast(self):
-        self.hex.flip_yaos()
-        print("Q:" + self.question)
-        lines = self.hex.print()
-        self.ai_interpretation(lines)
+        recorder = OutputRecorder(sys.stdout)
+        stdout = sys.stdout
+
+        try:
+            sys.stdout = recorder
+            self.hex.flip_yaos()
+            print("Q:" + self.question)
+            lines = self.hex.print()
+            self.ai_interpretation(lines)
+        finally:
+            sys.stdout = stdout
+
+        export_path = ReadingExporter(self.methodManager.get_method_name(), self.question).save(recorder.getvalue())
+        print("Reading saved to: {}".format(export_path))
 
     def ai_interpretation(self, lines):
         try:
@@ -573,8 +704,9 @@ class Doorway:
                 # model="gpt-3.5-turbo",
                 model="gpt-4",
                 messages=[
-                    # {"role": "system",
-                    #  "content": "You are a fortune-teller, an oracle, and a mystic. You specialize in the i ching"},
+                    {"role": "system",
+                     "content": "You are performing a reading with the i ching. Keep in mind that the use is an aries sun"
+                                "virgo moon, and scorpio rising"},
                     {"role": "user", "content": string}
                 ]
             )
@@ -585,7 +717,64 @@ class Doorway:
             for i in message:
                 print(i)
         except:
-            print("No ai")
+            print("AI flag: AI interpretation not available. Please check your API key and connection, or try again later.")
+
+
+class OutputRecorder:
+
+    def __init__(self, stream):
+        self._stream = stream
+        self._buffer = []
+
+    def write(self, text):
+        self._stream.write(text)
+        self._buffer.append(text)
+
+    def flush(self):
+        self._stream.flush()
+
+    def getvalue(self):
+        return "".join(self._buffer)
+
+
+class ReadingExporter:
+
+    OUTPUT_DIR = Path("readings")
+
+    def __init__(self, method, question):
+        self.method = method
+        self.question = question
+        self.created_at = datetime.now()
+
+    def save(self, output):
+        self.OUTPUT_DIR.mkdir(exist_ok=True)
+
+        path = self._file_path()
+        path.write_text(self._format_output(output), encoding="utf-8")
+
+        return path
+
+    def _file_path(self):
+        filename = "{}_reading.md".format(self.created_at.strftime("%Y-%m-%d_%H%M%S"))
+        path = self.OUTPUT_DIR / filename
+        counter = 2
+
+        while path.exists():
+            filename = "{}_reading-{}.md".format(self.created_at.strftime("%Y-%m-%d_%H%M%S"), counter)
+            path = self.OUTPUT_DIR / filename
+            counter += 1
+
+        return path
+
+    def _format_output(self, output):
+        return "# I Ching Reading\n\n" + \
+               "Date: {}\n".format(self.created_at.strftime("%Y-%m-%d %H:%M:%S")) + \
+               "Method: {}\n".format(self.method) + \
+               "Question: {}\n\n".format(self.question if self.question else "[no question]") + \
+               "## Output\n\n" + \
+               "```text\n" + \
+               output.rstrip() + \
+               "\n```\n"
 
 
 if __name__ == "__main__":
