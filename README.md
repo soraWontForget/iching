@@ -9,12 +9,30 @@
 > 1. Built-in entropy
 > 2. RF Explorer Handheld Spectrum Analyzer
 > 3. QRNG Australia National University (ANU)
+> 4. Manual three-coin throws
 
 ## API Keys
-- Users will need to install their own API keys to use the ChatGPT and QRNG features.
+- AI interpretation is enabled by default and uses the OpenAI API when `OPENAI_API_KEY` is set.
+- If OpenAI is unavailable because of missing credentials, connectivity, quota, or another API issue, the app falls back to the traditional Wilhelm output and still exports the reading.
 - This program makes use of Australia National University's QRNG equipment.
 - QRNG Australia National University (ANU) API: https://quantumnumbers.anu.edu.au/
-- ChatGPT API: https://help.openai.com/en/articles/7039783-how-can-i-access-the-chatgpt-api
+- OpenAI API: https://platform.openai.com/
+
+## AI Interpretation
+- Default model: `gpt-5.5`
+- Override model: `ICHING_AI_MODEL=gpt-5.4-mini python Hexagram.py`
+- Disable AI: `ICHING_AI_ENABLED=false python Hexagram.py`
+- Optional reader context: `ICHING_READER_CONTEXT="..." python Hexagram.py`
+
+The AI interpreter receives the question, primary hexagram, changing lines, transformed hexagram, and interpretive lens guidance directly through the API. Exported readings are archives of the completed reading, not files that need to be manually uploaded elsewhere.
+
+## Exports
+Readings are saved under `readings/` as Markdown. Each export includes:
+- reading metadata
+- cast summary
+- traditional terminal output and Wilhelm interpretation
+- AI interpretation when available, or a fallback note when unavailable
+- structured reading context in a collapsible section
 
 ## Example:
 ```

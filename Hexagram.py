@@ -26,18 +26,32 @@
 #
 # TODO: Implement other methods/sources for truly random generated numbers.
 # ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*
-import os.path
+import os
 import secrets
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-import RFExplorer
-from RFExplorer import RFE_Common
 import xml.etree.ElementTree as et
-from openai import OpenAI
-import requests
 import json
+
+try:
+    import requests
+except ImportError:
+    requests = None
+
+try:
+    import RFExplorer
+    from RFExplorer import RFE_Common
+except ImportError:
+    RFExplorer = None
+    RFE_Common = None
+
+try:
+    from openai import OpenAI, APIConnectionError, APIStatusError, AuthenticationError, OpenAIError, RateLimitError
+except ImportError:
+    OpenAI = None
+    APIConnectionError = APIStatusError = AuthenticationError = OpenAIError = RateLimitError = Exception
 
 
 class Hexagram:
@@ -81,6 +95,8 @@ class Hexagram:
             for i in self._hexagram:
                 i.flip_coins()
         elif int(self._method) == 2:
+            if RFExplorer is None or RFE_Common is None:
+                raise RuntimeError("RF Explorer support requires the RFExplorer Python package.")
             self._rf_exp = RFExplorer.RFECommunicator()
             self._rf_exp.GetConnectedPorts()
             if (self._rf_exp.ConnectPort("/dev/cu.SLAB_USBtoUART", 500000)):
@@ -98,6 +114,8 @@ class Hexagram:
             self._rf_exp.Close()  # Finish the thread and close port
             self._rf_exp = None
         elif int(self._method) == 3:
+            if requests is None:
+                raise RuntimeError("QRNG support requires the requests Python package.")
             counter = 0
             url = "https://api.quantumnumbers.anu.edu.au?length=18&type=hex8&size=1"
             headers = {"x-api-key": str(os.path.expandvars('$QRNG_API_KEY'))}
@@ -209,6 +227,94 @@ class Hexagram:
                     counter += 1
         self._hexagram.reverse()
         return transformed.copy()
+
+    def get_reading_context(self, question, changing_lines):
+        if self._hex_model is None or self._hex_transformed_model is None:
+            self._parse()
+
+        changing_lines = changing_lines or []
+        context = {
+            "question": question or "",
+            "source_text": "Wilhelm interpretation from interpretation/hexagrams.xml",
+            "primary_hexagram": self._hex_model_to_dict(self._hex_model),
+            "changing_lines": self._changing_lines_to_dict(changing_lines),
+            "transformed_hexagram": self._hex_model_to_dict(self._hex_transformed_model) if changing_lines else None,
+            "interpretive_lenses": [
+                {
+                    "name": "classical_confucian",
+                    "use": "Emphasize conduct, responsibility, timing, restraint, and right relationship."
+                },
+                {
+                    "name": "jungian_psychological",
+                    "use": "Read the cast as a mirror of inner tension, projection, shadow, and integration."
+                },
+                {
+                    "name": "practical_divination",
+                    "use": "Translate the cast into concrete next steps, risks, opportunities, and cautions."
+                },
+                {
+                    "name": "daoist_symbolic",
+                    "use": "Attend to natural movement, balance, yielding, cycles, and the image language."
+                },
+                {
+                    "name": "historical_critical",
+                    "use": "Distinguish the old image or omen from later moral and philosophical overlays when useful."
+                }
+            ],
+            "synthesis_guidance": (
+                "Use the question as the center of the reading. Weight changing lines heavily. "
+                "Treat the transformed hexagram as the direction of movement when changing lines are present. "
+                "Use lenses as perspectives for one coherent interpretation, not as separate essays."
+            )
+        }
+
+        return context
+
+    def _hex_model_to_dict(self, model):
+        return {
+            "number": model.number,
+            "name": model.name,
+            "description": self._clean_text(model.description),
+            "judgement": self._clean_text(model.judgement[0]),
+            "judgement_interpretation": self._clean_text(model.judgement[1]),
+            "image": self._clean_text(model.image[0]),
+            "image_interpretation": self._clean_text(model.image[1])
+        }
+
+    def _changing_lines_to_dict(self, changing_lines):
+        lines = []
+        for line_num in changing_lines:
+            lines.append({
+                "line": line_num,
+                "primary_text": self._clean_text(self._hex_model.lines[line_num][0]),
+                "primary_interpretation": self._clean_text(self._hex_model.lines[line_num][1]),
+                "transformed_text": self._clean_text(self._hex_transformed_model.lines[line_num][0]),
+                "transformed_interpretation": self._clean_text(self._hex_transformed_model.lines[line_num][1])
+            })
+        return lines
+
+    def get_cast_summary(self, changing_lines):
+        changing_lines = changing_lines or []
+        return {
+            "primary": "{} - {}".format(self._hex_model.number, self._hex_model.name),
+            "changing_lines": changing_lines,
+            "transformed": "{} - {}".format(
+                self._hex_transformed_model.number,
+                self._hex_transformed_model.name
+            ) if changing_lines else None
+        }
+
+    def _clean_text(self, text):
+        if text is None:
+            return ""
+
+        lines = [line.strip() for line in text.splitlines()]
+        while lines and lines[0] == "":
+            lines.pop(0)
+        while lines and lines[-1] == "":
+            lines.pop()
+
+        return "\n".join(lines)
 
 
 class HexModel:
@@ -642,6 +748,120 @@ class MethodManager:
             raise KeyboardInterrupt
 
 
+class AIInterpretationResult:
+
+    def __init__(self, enabled=True, available=False, output="", model="", failure_reason=""):
+        self.enabled = enabled
+        self.available = available
+        self.output = output
+        self.model = model
+        self.failure_reason = failure_reason
+
+    @property
+    def status(self):
+        if not self.enabled:
+            return "disabled"
+        if self.available:
+            return "available"
+        return "unavailable"
+
+    @classmethod
+    def success(cls, output, model):
+        return cls(enabled=True, available=True, output=output, model=model)
+
+    @classmethod
+    def unavailable(cls, model, reason):
+        return cls(enabled=True, available=False, model=model, failure_reason=reason)
+
+    @classmethod
+    def disabled(cls, model):
+        return cls(enabled=False, available=False, model=model, failure_reason="Disabled by ICHING_AI_ENABLED.")
+
+    def display_text(self):
+        if self.available:
+            return self.output
+        if self.enabled:
+            return "AI interpretation was unavailable. The traditional reading output was preserved."
+        return "AI interpretation was disabled. The traditional reading output was preserved."
+
+
+class AIInterpreter:
+
+    DEFAULT_MODEL = "gpt-5.5"
+    DISABLED_VALUES = {"0", "false", "no", "off", "disabled"}
+    INSTRUCTIONS = (
+        "You are interpreting an I Ching reading for reflective, non-deterministic guidance. "
+        "Use the querent's question as the center of the reading. Anchor the interpretation in "
+        "the supplied Wilhelm text, the changing lines, and the transformed hexagram when present. "
+        "Use the interpretive lenses as perspectives for one coherent interpretation, not as "
+        "separate essays. Do not invent hexagram details that are not supplied. Do not present the "
+        "reading as certainty, prediction, medical advice, legal advice, financial advice, or a "
+        "command. Be practical, compassionate, and concise.\n\n"
+        "Format the response with these headings when relevant:\n"
+        "Central tension\n"
+        "Primary hexagram\n"
+        "Changing lines\n"
+        "Movement\n"
+        "Synthesis\n"
+        "Reflection"
+    )
+
+    def __init__(self, model=None, enabled=None):
+        self.model = model or os.environ.get("ICHING_AI_MODEL") or self.DEFAULT_MODEL
+        self.enabled = self._env_enabled() if enabled is None else enabled
+
+    def interpret(self, reading_context):
+        if not self.enabled:
+            return AIInterpretationResult.disabled(self.model)
+
+        if OpenAI is None:
+            return AIInterpretationResult.unavailable(self.model, "The OpenAI Python package is not installed.")
+
+        if not os.environ.get("OPENAI_API_KEY"):
+            return AIInterpretationResult.unavailable(self.model, "OPENAI_API_KEY is not set.")
+
+        try:
+            client = OpenAI()
+            response = client.responses.create(
+                model=self.model,
+                instructions=self.INSTRUCTIONS,
+                input=self._format_input(reading_context),
+                store=False
+            )
+            output = getattr(response, "output_text", "").strip()
+            if not output:
+                return AIInterpretationResult.unavailable(self.model, "OpenAI returned an empty interpretation.")
+            return AIInterpretationResult.success(output, self.model)
+        except AuthenticationError:
+            return AIInterpretationResult.unavailable(self.model, "OpenAI authentication failed.")
+        except RateLimitError:
+            return AIInterpretationResult.unavailable(self.model, "OpenAI rate limit, quota, or funding issue.")
+        except APIConnectionError:
+            return AIInterpretationResult.unavailable(self.model, "Could not connect to OpenAI.")
+        except APIStatusError as err:
+            return AIInterpretationResult.unavailable(self.model, "OpenAI API error: HTTP {}".format(err.status_code))
+        except OpenAIError as err:
+            return AIInterpretationResult.unavailable(self.model, "OpenAI API error: {}".format(err))
+        except Exception as err:
+            return AIInterpretationResult.unavailable(self.model, "Unexpected AI interpretation error: {}".format(err))
+
+    def _env_enabled(self):
+        value = os.environ.get("ICHING_AI_ENABLED", "true").strip().lower()
+        return value not in self.DISABLED_VALUES
+
+    def _format_input(self, reading_context):
+        payload = {
+            "reading_context": reading_context
+        }
+        reader_context = os.environ.get("ICHING_READER_CONTEXT", "").strip()
+        if reader_context:
+            payload["optional_reader_context"] = (
+                "Use this only as optional symbolic context, not as a deterministic rule: {}".format(reader_context)
+            )
+
+        return "Interpret this I Ching reading.\n\n{}".format(json.dumps(payload, indent=2, ensure_ascii=False))
+
+
 class Doorway:
 
     def __init__(self):
@@ -658,66 +878,40 @@ class Doorway:
             # self.__init__()
 
     def cast(self):
-        recorder = OutputRecorder(sys.stdout)
+        traditional_recorder = OutputRecorder(sys.stdout)
         stdout = sys.stdout
+        lines = []
 
         try:
-            sys.stdout = recorder
+            sys.stdout = traditional_recorder
             self.hex.flip_yaos()
             print("Q:" + self.question)
             lines = self.hex.print()
-            self.ai_interpretation(lines)
         finally:
             sys.stdout = stdout
 
-        export_path = ReadingExporter(self.methodManager.get_method_name(), self.question).save(recorder.getvalue())
+        reading_context = self.hex.get_reading_context(self.question, lines)
+        cast_summary = self.hex.get_cast_summary(lines)
+        ai_result = self.ai_interpretation(reading_context)
+
+        export_path = ReadingExporter(self.methodManager.get_method_name(), self.question).save(
+            traditional_output=traditional_recorder.getvalue(),
+            ai_result=ai_result,
+            reading_context=reading_context,
+            cast_summary=cast_summary
+        )
         print("Reading saved to: {}".format(export_path))
 
-    def ai_interpretation(self, lines):
-        try:
-            client = OpenAI()
-            if len(self.question) == 0:
-                if len(lines) > 0:
-                    string = "Please interpret the following hexagram as a general read for the querent.\
-                                             hexagram:{} \
-                                             Please also interpret within the context of lines {}".format(self.hex.get_hex_num()[0], lines)
-                    string = string + "Please also interpret the question in the context of the following transformed hexagram and lines:\
-                                                 hexagram: {}\
-                                                 lines: {}".format(self.hex.get_hex_num()[1], lines)
-                else:
-                    string = "Please interpret the following hexagram as a general read for the querent.\
-                                            hexagram:{}".format(self.hex.get_hex_num()[0])
-            else:
-                if len(lines) > 0:
-                    string = "Please interpret the following question in the context of this hexagram:\
-                         question:{} \
-                         hexagram:{} \
-                         Please also interpret within the context of lines {}. ".format(self.question, self.hex.get_hex_num()[0], lines)
-                    string = string + "Please also interpret the question in the context of the following transformed hexagram and lines:\
-                             hexagram: {}\
-                             lines: {}".format(self.hex.get_hex_num()[1], lines)
-                else:
-                    string = "Please interpret the following question in the context of this hexagram:\
-                         question:{} \
-                         hexagram:{}".format(self.question, self.hex.get_hex_num()[0])
-            completion = client.chat.completions.create(
-                # model="gpt-3.5-turbo",
-                model="gpt-4",
-                messages=[
-                    {"role": "system",
-                     "content": "You are performing a reading with the i ching. Keep in mind that the use is an aries sun"
-                                "virgo moon, and scorpio rising"},
-                    {"role": "user", "content": string}
-                ]
-            )
-            message = completion.choices[0].message.content.split("\n")
+    def ai_interpretation(self, reading_context):
+        result = AIInterpreter().interpret(reading_context)
 
-            print("\n")
-            print("AI Interpretation:\n")
-            for i in message:
-                print(i)
-        except:
-            print("AI flag: AI interpretation not available. Please check your API key and connection, or try again later.")
+        print("\n")
+        print("AI Interpretation:\n")
+        print(result.display_text())
+        if result.failure_reason:
+            print("AI status: {}".format(result.failure_reason))
+
+        return result
 
 
 class OutputRecorder:
@@ -746,11 +940,14 @@ class ReadingExporter:
         self.question = question
         self.created_at = datetime.now()
 
-    def save(self, output):
+    def save(self, traditional_output, ai_result=None, reading_context=None, cast_summary=None):
         self.OUTPUT_DIR.mkdir(exist_ok=True)
 
         path = self._file_path()
-        path.write_text(self._format_output(output), encoding="utf-8")
+        path.write_text(
+            self._format_output(traditional_output, ai_result, reading_context, cast_summary),
+            encoding="utf-8"
+        )
 
         return path
 
@@ -766,15 +963,61 @@ class ReadingExporter:
 
         return path
 
-    def _format_output(self, output):
-        return "# I Ching Reading\n\n" + \
-               "Date: {}\n".format(self.created_at.strftime("%Y-%m-%d %H:%M:%S")) + \
-               "Method: {}\n".format(self.method) + \
-               "Question: {}\n\n".format(self.question if self.question else "[no question]") + \
-               "## Output\n\n" + \
-               "```text\n" + \
-               output.rstrip() + \
-               "\n```\n"
+    def _format_output(self, traditional_output, ai_result=None, reading_context=None, cast_summary=None):
+        ai_result = ai_result or AIInterpretationResult.disabled("")
+        cast_summary = cast_summary or {}
+        reading_context = reading_context or {}
+
+        output = [
+            "# I Ching Reading",
+            "",
+            "Date: {}".format(self.created_at.strftime("%Y-%m-%d %H:%M:%S")),
+            "Method: {}".format(self.method),
+            "Question: {}".format(self.question if self.question else "[no question]"),
+            "AI Interpretation: {}".format(ai_result.status)
+        ]
+
+        if ai_result.model:
+            output.append("AI Model: {}".format(ai_result.model))
+        if ai_result.failure_reason:
+            output.append("AI Failure Reason: {}".format(ai_result.failure_reason))
+
+        output.extend([
+            "",
+            "## Cast",
+            "",
+            "Primary Hexagram: {}".format(cast_summary.get("primary", "[unknown]")),
+            "Changing Lines: {}".format(
+                ", ".join(str(line) for line in cast_summary.get("changing_lines", [])) or "none"
+            ),
+            "Transformed Hexagram: {}".format(cast_summary.get("transformed") or "none"),
+            "",
+            "## Traditional Reading",
+            "",
+            "```text",
+            traditional_output.rstrip(),
+            "```",
+            "",
+            "## AI Interpretation",
+            "",
+            ai_result.display_text()
+        ])
+
+        if reading_context:
+            output.extend([
+                "",
+                "<details>",
+                "<summary>Reading Context</summary>",
+                "",
+                "```json",
+                json.dumps(reading_context, indent=2, ensure_ascii=False),
+                "```",
+                "",
+                "</details>"
+            ])
+
+        output.append("")
+        return "\n".join(output)
 
 
 if __name__ == "__main__":
